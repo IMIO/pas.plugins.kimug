@@ -49,6 +49,23 @@ You can check the list of available subtemplates in the [`bobtemplates.plone` `R
 See also the documentation of [Mockup and Patternslib](https://6.docs.plone.org/classic-ui/mockup.html) for how to build the UI toolkit for Classic UI.
 ```
 
+## Test environment
+
+### export imio realm
+
+```shell
+/opt/keycloak/bin/kc.sh export --file /opt/keycloak/data/import/realms-imio.json --realm imio
+```
+
+### Tests credentials
+
+- login : kimug
+
+- email : kimug@imio.be
+
+- password : kimug
+
+
 ## Contribute
 
 - [Issue Tracker](https://github.com/imio/pas.plugins.kimug/issues)

@@ -680,7 +680,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "**********",
+      "secret": "12345678910",
       "redirectUris": [
         "http://localhost:8080/Plone/*"
       ],
