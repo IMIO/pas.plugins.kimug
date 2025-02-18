@@ -17,7 +17,8 @@ pip install pas.plugins.kimug
 And to create the Plone site:
 
 ```shell
-make create_site
+make build
+make create-site
 ```
 
 ## Add features using `plonecli` or `bobtemplates.plone`
