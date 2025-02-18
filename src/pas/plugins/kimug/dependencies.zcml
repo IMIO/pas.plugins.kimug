@@ -1,5 +1,6 @@
 <configure xmlns="http://namespaces.zope.org/zope">
 
   <!-- List all packages you depend here -->
+  <include package="pas.plugins.oidc" />
 
 </configure>

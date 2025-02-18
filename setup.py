@@ -52,6 +52,7 @@ setup(
         "setuptools",
         "Products.CMFPlone",
         "plone.api",
+        "pas.plugins.oidc>=2.0.0b3",
     ],
     extras_require={
         "test": [
