@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layers>
+  <layer interface="pas.plugins.kimug.interfaces.IBrowserLayer"
+         name="pas.plugins.kimug"
+  />
+</layers>

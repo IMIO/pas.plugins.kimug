@@ -1,0 +1,32 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    i18n_domain="pas.plugins.kimug"
+    >
+
+  <genericsetup:registerProfile
+      name="default"
+      title="pas.plugins.kimug: Install"
+      description="Package to configure a new pas.plugins.kimug site"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      directory="profiles/default"
+      />
+
+  <genericsetup:registerProfile
+      name="uninstall"
+      title="pas.plugins.kimug: Uninstall"
+      description="Uninstall pas.plugins.kimug setup."
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      directory="profiles/uninstall"
+      />
+
+  <!-- Hide Uninstall Profile-->
+  <utility
+      factory=".setuphandlers.HiddenProfiles"
+      name="pas.plugins.kimug"
+      />
+
+
+  <include package=".upgrades" />
+
+</configure>
