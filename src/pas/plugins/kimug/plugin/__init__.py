@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
 from AccessControl import ClassSecurityInfo
 from AccessControl.class_init import InitializeClass
+from pas.plugins.kimug.interfaces import IKimugPlugin
 from pas.plugins.oidc.plugins import OIDCPlugin
-from pas.plugins.kimug.interfaces import IKimugPlugin
-from pas.plugins.kimug.interfaces import IKimugPlugin
 from Products.CMFCore.permissions import ManagePortal
 from Products.PageTemplates.PageTemplateFile import PageTemplateFile
 from Products.PluggableAuthService.interfaces import plugins as pas_interfaces
