@@ -9,7 +9,9 @@ class HiddenProfiles:
     def getNonInstallableProfiles(self):
         """Hide uninstall profile from site-creation and quickinstaller."""
         return [
+            "pas.plugins.kimug:default",
             "pas.plugins.kimug:uninstall",
+            "pas.plugins.oidc:default",
         ]
 
 
