@@ -9,14 +9,16 @@ from zope.interface import implementer
 
 
 def manage_addKimugPlugin(context, id="oidc", title="", RESPONSE=None, **kw):
-    """Create an instance of a Authentic Plugin."""
+    """Create an instance of a Kimug Plugin."""
     plugin = KimugPlugin(id, title, **kw)
     context._setObject(plugin.getId(), plugin)
     if RESPONSE is not None:
         RESPONSE.redirect("manage_workspace")
 
 
-manage_addKimugPluginForm = PageTemplateFile("www/KimugPluginForm", globals())
+manage_addKimugPluginForm = PageTemplateFile(
+    "www/KimugPluginForm", globals(), __name__="manage_addKimugluginForm"
+)
 
 
 @implementer(
@@ -26,15 +28,15 @@ manage_addKimugPluginForm = PageTemplateFile("www/KimugPluginForm", globals())
 )
 class KimugPlugin(OIDCPlugin):
     security = ClassSecurityInfo()
-    meta_type = "Authentic Plugin"
+    meta_type = "Kimug Plugin"
     # BasePlugin.manage_options
-    manage_options = (
-        {"label": "iMio Users", "action": "manage_kimugplugin"},
-    ) + OIDCPlugin.manage_options
-    security.declareProtected(ManagePortal, "manage_kimugplugin")
-    manage_kimugplugin = PageTemplateFile(
-        "zmi", globals(), __name__="manage_kimugplugin"
-    )
+    # manage_options = (
+    #     {"label": "iMio Users", "action": "manage_kimugplugin"},
+    # ) + OIDCPlugin.manage_options
+    # security.declareProtected(ManagePortal, "manage_kimugplugin")
+    # manage_kimugplugin = PageTemplateFile(
+    #     "zmi", globals(), __name__="manage_kimugplugin"
+    # )
 
     # Tell PAS not to swallow our exceptions
     _dont_swallow_my_exceptions = True
