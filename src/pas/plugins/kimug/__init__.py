@@ -22,7 +22,7 @@ tpl_dir = os.path.join(os.path.dirname(__file__), "static")
 def initialize(context):
     """Initializer called when used as a Zope 2 product.
 
-    This is referenced from configure.zcml. Regstrations as a "Zope 2 product"
+    This is referenced from configure.zcml. Registrations as a "Zope 2 product"
     is necessary for GenericSetup profiles to work, for example.
 
     Here, we call the Archetypes machinery to register our content types
