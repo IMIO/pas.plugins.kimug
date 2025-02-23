@@ -1,0 +1,73 @@
+{
+  "__version__": "1.0.0",
+  "_blob_files_": [],
+  "_data_files_": [
+    "plone_site_root/data.json"
+  ],
+  "default_page": {},
+  "local_permissions": {
+    "plone_site_root": {
+      "Add portal member": {
+        "acquire": false,
+        "roles": [
+          "Manager",
+          "Site Administrator",
+          "Owner"
+        ]
+      },
+      "Content rules: Manage rules": {
+        "acquire": false,
+        "roles": [
+          "Manager",
+          "Site Administrator"
+        ]
+      },
+      "Set own password": {
+        "acquire": false,
+        "roles": [
+          "Authenticated",
+          "Manager",
+          "Site Administrator"
+        ]
+      },
+      "Set own properties": {
+        "acquire": false,
+        "roles": [
+          "Authenticated",
+          "Manager",
+          "Site Administrator"
+        ]
+      },
+      "Show Toolbar": {
+        "acquire": false,
+        "roles": [
+          "Authenticated"
+        ]
+      },
+      "plone.resource: Export ZIP file": {
+        "acquire": false,
+        "roles": [
+          "Manager"
+        ]
+      },
+      "plone.resourceeditor: Manage Sources": {
+        "acquire": false,
+        "roles": [
+          "Manager",
+          "Site Administrator"
+        ]
+      }
+    }
+  },
+  "local_roles": {
+    "plone_site_root": {
+      "local_roles": {
+        "admin": [
+          "Owner"
+        ]
+      }
+    }
+  },
+  "ordering": {},
+  "relations": []
+}

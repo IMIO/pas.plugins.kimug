@@ -23,6 +23,7 @@ setup(
         "Environment :: Web Environment",
         "Framework :: Plone",
         "Framework :: Plone :: Addon",
+        "Framework :: Plone :: Distribution",
         "Framework :: Plone :: 6.0",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.10",
@@ -53,6 +54,7 @@ setup(
         "Products.CMFPlone",
         "plone.api",
         "pas.plugins.oidc>=2.0.0b3",
+        "plone.distribution",
     ],
     extras_require={
         "test": [

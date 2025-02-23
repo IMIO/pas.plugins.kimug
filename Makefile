@@ -82,7 +82,7 @@ remove-data: ## Remove all content
 
 .PHONY: start
 start: ## Start a Plone instance on localhost:8080
-	PYTHONWARNINGS=ignore $(BIN_FOLDER)/runwsgi instance/etc/zope.ini
+	PYTHONWARNINGS=ignore ALLOWED_DISTRIBUTIONS=kimug $(BIN_FOLDER)/runwsgi instance/etc/zope.ini
 
 .PHONY: console
 console: instance/etc/zope.ini ## Start a console into a Plone instance
