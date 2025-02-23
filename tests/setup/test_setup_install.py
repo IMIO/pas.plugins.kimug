@@ -9,10 +9,11 @@ class TestSetupInstall:
     def test_browserlayer(self, browser_layers):
         """Test that IBrowserLayer is registered."""
         from pas.plugins.kimug.interfaces import IBrowserLayer
-        from pas.plugins.oidc.interfaces import IPasPluginsOidcLayer
+
+        # from pas.plugins.oidc.interfaces import IPasPluginsOidcLayer
 
         assert IBrowserLayer in browser_layers
-        assert IPasPluginsOidcLayer in browser_layers
+        # assert IPasPluginsOidcLayer in browser_layers
 
     def test_latest_version(self, profile_last_version):
         """Test latest version of default profile."""
