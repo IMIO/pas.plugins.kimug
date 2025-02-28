@@ -4,6 +4,7 @@ from pas.plugins.kimug.testing import INTEGRATION_TESTING
 from pathlib import Path
 from plone import api
 from pytest_plone import fixtures_factory
+from requests.exceptions import ConnectionError
 from zope.component.hooks import setSite
 
 import pytest
@@ -46,7 +47,7 @@ def keycloak_service(docker_ip, docker_services):
     port = docker_services.port_for("keycloak", 8080)
     url = f"http://{docker_ip}:{port}"
     docker_services.wait_until_responsive(
-        timeout=50.0, pause=0.1, check=lambda: is_responsive(url)
+        timeout=60.0, pause=0.1, check=lambda: is_responsive(url)
     )
     return url
 
@@ -54,9 +55,9 @@ def keycloak_service(docker_ip, docker_services):
 @pytest.fixture(scope="session")
 def keycloak(keycloak_service):
     return {
-        "issuer": f"{keycloak_service}/realms/plone-test",
+        "issuer": f"{keycloak_service}/realms/imio",
         "client_id": "plone",
-        "client_secret": "12345678",  # nosec B105
+        "client_secret": "12345678910",  # nosec B105
         "scope": ("openid", "profile", "email"),
     }
 
@@ -89,9 +90,9 @@ def portal(integration, keycloak, keycloak_api):
     plugin = portal.acl_users.oidc
     with api.env.adopt_roles(["Manager", "Member"]):
         for key, value in keycloak.items():
-            __import__("ipdb").set_trace()
+            # __import__("ipdb").set_trace()
             setattr(plugin, key, value)
-        for key, value in keycloak_api.items():
-            name = f"keycloak_groups.{key}"
-            api.portal.set_registry_record(name, value)
+        # for key, value in keycloak_api.items():
+        #     name = f"keycloak_groups.{key}"
+        #     api.portal.set_registry_record(name, value)
     return portal

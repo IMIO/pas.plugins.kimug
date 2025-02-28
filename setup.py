@@ -67,6 +67,7 @@ setup(
             "pytest",
             "pytest-cov",
             "pytest-plone>=0.5.0",
+            "pytest-docker",
         ],
     },
     entry_points="""
