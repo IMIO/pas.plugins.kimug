@@ -588,7 +588,7 @@
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "secret" : "MfxfGQWs5aoi41vXbhltg9GMBOXXArvy",
+    "secret" : "12345678910",
     "redirectUris" : [ "http://localhost:8080/*" ],
     "webOrigins" : [ "*" ],
     "notBefore" : 0,
@@ -1360,7 +1360,7 @@
       "clientAuthMethod" : "client_secret_post",
       "logoutUrl" : "http://keycloak.traefik.me/realms/imio/protocol/openid-connect/logout",
       "syncMode" : "LEGACY",
-      "clientSecret" : "6nqCsUKywhFBL9fpFE03msKsOsSAUgAY",
+      "clientSecret" : "12345678910",
       "issuer" : "http://keycloak.traefik.me/realms/imio"
     }
   } ],

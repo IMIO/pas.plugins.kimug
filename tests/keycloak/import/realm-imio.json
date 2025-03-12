@@ -575,7 +575,7 @@
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "secret" : "6nqCsUKywhFBL9fpFE03msKsOsSAUgAY",
+    "secret" : "12345678910",
     "redirectUris" : [ "http://keycloak.traefik.me/realms/plone/broker/imio-idp/endpoint" ],
     "webOrigins" : [ "http://keycloak.traefik.me" ],
     "notBefore" : 0,
