@@ -6,6 +6,8 @@ from Products.PageTemplates.PageTemplateFile import PageTemplateFile
 from Products.PluggableAuthService.interfaces import plugins as pas_interfaces
 from zope.interface import implementer
 
+import os
+
 
 def manage_addKimugPlugin(context, id="oidc", title="", RESPONSE=None, **kw):
     """Create an instance of a Kimug Plugin."""
@@ -28,27 +30,17 @@ manage_addKimugPluginForm = PageTemplateFile(
 class KimugPlugin(OIDCPlugin):
     security = ClassSecurityInfo()
     meta_type = "Kimug Plugin"
-    # BasePlugin.manage_options
-    # manage_options = (
-    #     {"label": "iMio Users", "action": "manage_kimugplugin"},
-    # ) + OIDCPlugin.manage_options
-    # security.declareProtected(ManagePortal, "manage_kimugplugin")
-    # manage_kimugplugin = PageTemplateFile(
-    #     "zmi", globals(), __name__="manage_kimugplugin"
-    # )
-
-    # Tell PAS not to swallow our exceptions
     _dont_swallow_my_exceptions = True
-
-    # def __init__(self, id, title=None):
-    #     __import__("ipdb").set_trace()
-    #     self._setId(id)
-    #     self.title = title
 
     @security.private
     def getRolesForPrincipal(self, user, request=None):
         """Fulfill RolesPlugin requirements"""
-        pass
+        app_id = os.environ.get("application_id", "smartweb")
+        roles = ["Member"]
+        if app_id in user.getGroups():
+            roles.append("Manager")
+            return tuple(roles)
+        return tuple(roles)
 
 
 InitializeClass(KimugPlugin)

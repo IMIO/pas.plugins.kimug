@@ -61,6 +61,14 @@
       "containerId" : "c79712bf-b872-4e49-a245-6adfefc7c318",
       "attributes" : { }
     }, {
+      "id" : "db162a24-5f8c-4d8f-b4ff-91f75d2367f6",
+      "name" : "smartweb-admin",
+      "description" : "",
+      "composite" : false,
+      "clientRole" : false,
+      "containerId" : "c79712bf-b872-4e49-a245-6adfefc7c318",
+      "attributes" : { }
+    }, {
       "id" : "b83b389d-60af-4cec-8b6e-7d1c484ba943",
       "name" : "uma_authorization",
       "description" : "${role_uma_authorization}",
@@ -239,7 +247,7 @@
         "composite" : true,
         "composites" : {
           "client" : {
-            "realm-management" : [ "create-client", "manage-realm", "manage-authorization", "view-users", "view-clients", "query-clients", "query-realms", "manage-users", "query-groups", "view-authorization", "view-identity-providers", "manage-events", "query-users", "manage-clients", "impersonation", "view-realm", "view-events", "manage-identity-providers" ]
+            "realm-management" : [ "create-client", "manage-realm", "manage-authorization", "view-users", "query-clients", "view-clients", "query-realms", "manage-users", "query-groups", "view-authorization", "view-identity-providers", "manage-events", "query-users", "manage-clients", "impersonation", "view-realm", "view-events", "manage-identity-providers" ]
           }
         },
         "clientRole" : true,
@@ -378,36 +386,16 @@
   "webAuthnPolicyPasswordlessAcceptableAaguids" : [ ],
   "webAuthnPolicyPasswordlessExtraOrigins" : [ ],
   "users" : [ {
-    "id" : "3f98cafa-146f-4e4c-a72b-e4971b4d8291",
-    "username" : "imio",
-    "firstName" : "Im",
-    "lastName" : "Io",
-    "email" : "imio@imio.be",
-    "emailVerified" : false,
-    "createdTimestamp" : 1741700136066,
-    "enabled" : true,
-    "totp" : false,
-    "credentials" : [ {
-      "id" : "371389fd-1dd7-4cf3-911f-ccae1989cf0e",
-      "type" : "password",
-      "userLabel" : "My password",
-      "createdDate" : 1741700147002,
-      "secretData" : "{\"value\":\"lPWfk3zjiV+Z9oZipajM/pkeBpK+QAgGZ8cz5gYh1ho=\",\"salt\":\"lMEmJwp4+NC+dBKdoCHxuw==\",\"additionalParameters\":{}}",
-      "credentialData" : "{\"hashIterations\":5,\"algorithm\":\"argon2\",\"additionalParameters\":{\"hashLength\":[\"32\"],\"memory\":[\"7168\"],\"type\":[\"id\"],\"version\":[\"1.3\"],\"parallelism\":[\"1\"]}}"
-    } ],
-    "disableableCredentialTypes" : [ ],
-    "requiredActions" : [ ],
-    "realmRoles" : [ "default-roles-plone" ],
-    "notBefore" : 0,
-    "groups" : [ ]
-  }, {
-    "id" : "8e97b9d1-2a72-4df3-81d4-22e1e664e419",
+    "id" : "945cfa76-b01b-423c-a9db-a119c137df09",
     "username" : "kimug",
     "firstName" : "Ki",
     "lastName" : "Mug",
     "email" : "kimug@imio.be",
     "emailVerified" : false,
-    "createdTimestamp" : 1741703299359,
+    "attributes" : {
+      "groups" : [ "smartweb" ]
+    },
+    "createdTimestamp" : 1742976954268,
     "enabled" : true,
     "totp" : false,
     "credentials" : [ ],
@@ -432,7 +420,11 @@
     "credentials" : [ ],
     "disableableCredentialTypes" : [ ],
     "requiredActions" : [ ],
-    "realmRoles" : [ "default-roles-plone" ],
+    "realmRoles" : [ "default-roles-plone", "smartweb-admin" ],
+    "clientRoles" : {
+      "realm-management" : [ "query-users", "view-users", "query-groups" ],
+      "broker" : [ "read-token" ]
+    },
     "notBefore" : 0,
     "groups" : [ ]
   } ],
@@ -613,7 +605,25 @@
     "authenticationFlowBindingOverrides" : { },
     "fullScopeAllowed" : true,
     "nodeReRegistrationTimeout" : -1,
-    "defaultClientScopes" : [ "web-origins", "service_account", "acr", "profile", "roles", "basic", "email" ],
+    "protocolMappers" : [ {
+      "id" : "0bd6ad4c-d4ef-43f1-b281-df7126741265",
+      "name" : "GroupMapper",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-usermodel-attribute-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "introspection.token.claim" : "true",
+        "userinfo.token.claim" : "true",
+        "multivalued" : "true",
+        "user.attribute" : "groups",
+        "id.token.claim" : "true",
+        "lightweight.claim" : "true",
+        "access.token.claim" : "true",
+        "claim.name" : "groups",
+        "jsonType.label" : "String"
+      }
+    } ],
+    "defaultClientScopes" : [ "web-origins", "service_account", "acr", "profile", "roles", "groups", "basic", "email" ],
     "optionalClientScopes" : [ "address", "phone", "offline_access", "organization", "microprofile-jwt" ]
   }, {
     "id" : "0907c0e9-776d-4200-ac56-799c0b53ce06",
@@ -979,6 +989,33 @@
       }
     } ]
   }, {
+    "id" : "71a2b28f-aa77-43cf-b053-cd5355b9823b",
+    "name" : "groups",
+    "description" : "",
+    "protocol" : "openid-connect",
+    "attributes" : {
+      "include.in.token.scope" : "false",
+      "display.on.consent.screen" : "true",
+      "gui.order" : "",
+      "consent.screen.text" : ""
+    },
+    "protocolMappers" : [ {
+      "id" : "2e19993e-c0c9-41ad-8eb3-10f8672662ae",
+      "name" : "groups",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-group-membership-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "full.path" : "false",
+        "introspection.token.claim" : "true",
+        "userinfo.token.claim" : "true",
+        "id.token.claim" : "true",
+        "lightweight.claim" : "false",
+        "access.token.claim" : "true",
+        "claim.name" : "groups"
+      }
+    } ]
+  }, {
     "id" : "00cf1b42-9eb8-4bc1-a76f-6f5758cff1a1",
     "name" : "acr",
     "description" : "OpenID Connect scope for add acr (authentication context class reference) to the token",
@@ -1319,7 +1356,7 @@
       }
     } ]
   } ],
-  "defaultDefaultClientScopes" : [ "role_list", "saml_organization", "profile", "email", "roles", "web-origins", "acr", "basic" ],
+  "defaultDefaultClientScopes" : [ "role_list", "saml_organization", "profile", "email", "roles", "web-origins", "acr", "basic", "groups" ],
   "defaultOptionalClientScopes" : [ "offline_access", "address", "phone", "microprofile-jwt", "organization" ],
   "browserSecurityHeaders" : {
     "contentSecurityPolicyReportOnly" : "",
@@ -1351,20 +1388,44 @@
     "linkOnly" : false,
     "hideOnLogin" : false,
     "config" : {
+      "tokenUrl" : "http://keycloak.traefik.me/realms/imio/protocol/openid-connect/token",
+      "acceptsPromptNoneForwardFromClient" : "false",
+      "isAccessTokenJWT" : "false",
+      "filteredByClaim" : "false",
+      "backchannelSupported" : "false",
+      "caseSensitiveOriginalUsername" : "false",
+      "issuer" : "http://keycloak.traefik.me/realms/imio",
+      "loginHint" : "false",
+      "clientAuthMethod" : "client_secret_post",
+      "syncMode" : "FORCE",
+      "clientSecret" : "12345678910",
+      "allowedClockSkew" : "0",
+      "defaultScope" : "openid profile groups email",
       "userInfoUrl" : "http://keycloak.traefik.me/realms/imio/protocol/openid-connect/userinfo",
       "validateSignature" : "false",
-      "pkceEnabled" : "false",
       "clientId" : "keycloak-idp",
-      "tokenUrl" : "http://keycloak.traefik.me/realms/imio/protocol/openid-connect/token",
+      "uiLocales" : "false",
+      "disableNonce" : "false",
+      "sendClientIdOnLogout" : "false",
+      "pkceEnabled" : "false",
       "authorizationUrl" : "http://keycloak.traefik.me/realms/imio/protocol/openid-connect/auth",
-      "clientAuthMethod" : "client_secret_post",
+      "disableUserInfo" : "false",
       "logoutUrl" : "http://keycloak.traefik.me/realms/imio/protocol/openid-connect/logout",
-      "syncMode" : "LEGACY",
-      "clientSecret" : "12345678910",
-      "issuer" : "http://keycloak.traefik.me/realms/imio"
+      "sendIdTokenOnLogout" : "true",
+      "passMaxAge" : "false"
     }
   } ],
-  "identityProviderMappers" : [ ],
+  "identityProviderMappers" : [ {
+    "id" : "14fd1c49-b764-4514-9e43-31557bf31ae1",
+    "name" : "groups",
+    "identityProviderAlias" : "imio-idp",
+    "identityProviderMapper" : "oidc-user-attribute-idp-mapper",
+    "config" : {
+      "syncMode" : "FORCE",
+      "claim" : "groups",
+      "user.attribute" : "groups"
+    }
+  } ],
   "components" : {
     "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy" : [ {
       "id" : "fa497e85-3f04-4e97-84aa-6970a520de54",
@@ -1373,7 +1434,7 @@
       "subType" : "anonymous",
       "subComponents" : { },
       "config" : {
-        "allowed-protocol-mapper-types" : [ "saml-role-list-mapper", "oidc-sha256-pairwise-sub-mapper", "oidc-address-mapper", "saml-user-property-mapper", "oidc-usermodel-attribute-mapper", "oidc-full-name-mapper", "oidc-usermodel-property-mapper", "saml-user-attribute-mapper" ]
+        "allowed-protocol-mapper-types" : [ "oidc-sha256-pairwise-sub-mapper", "oidc-usermodel-property-mapper", "oidc-full-name-mapper", "saml-user-attribute-mapper", "oidc-usermodel-attribute-mapper", "saml-role-list-mapper", "oidc-address-mapper", "saml-user-property-mapper" ]
       }
     }, {
       "id" : "13622451-58dc-4f60-af10-ff115993fce7",
@@ -1424,7 +1485,7 @@
       "subType" : "authenticated",
       "subComponents" : { },
       "config" : {
-        "allowed-protocol-mapper-types" : [ "oidc-full-name-mapper", "saml-user-property-mapper", "oidc-usermodel-property-mapper", "saml-user-attribute-mapper", "oidc-address-mapper", "oidc-usermodel-attribute-mapper", "saml-role-list-mapper", "oidc-sha256-pairwise-sub-mapper" ]
+        "allowed-protocol-mapper-types" : [ "oidc-address-mapper", "saml-role-list-mapper", "oidc-sha256-pairwise-sub-mapper", "oidc-usermodel-attribute-mapper", "saml-user-property-mapper", "saml-user-attribute-mapper", "oidc-full-name-mapper", "oidc-usermodel-property-mapper" ]
       }
     }, {
       "id" : "2d1cb5fc-92c4-4492-905a-c858f02ed0a7",

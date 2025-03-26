@@ -62,4 +62,6 @@ if site_id not in app.objectIds():
     portal_setup: SetupTool = site.portal_setup
     portal_setup.runAllImportStepsFromProfile("profile-pas.plugins.kimug:default")
 
+    # TODO configure oidc plugin
+
     transaction.commit()

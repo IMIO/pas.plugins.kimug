@@ -20,7 +20,7 @@ def post_handler(
     oidc = acl_user.oidc
     oidc.client_id = "plone"
     oidc.client_secret = "12345678910"
-    oidc.issuer = "http://127.0.0.1:8180/realms/plone/"
+    oidc.issuer = "http://keycloak.traefik.me/realms/plone/"
     oidc.redirect_uris = ("http://localhost:8080/Plone/acl_users/oidc/callback",)
     oidc.scope = ("openid", "profile", "email")
 

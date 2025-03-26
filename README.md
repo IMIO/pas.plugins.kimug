@@ -54,7 +54,9 @@ See also the documentation of [Mockup and Patternslib](https://6.docs.plone.org/
 ### export imio realm
 
 ```shell
-docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak/data/import/realms-imio.json --realm imio
+cd tests && docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak/data/import/realm-imio.json --realm imio
+
+docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak/data/import/realm-plone.json --realm plone
 ```
 
 ### Tests credentials
