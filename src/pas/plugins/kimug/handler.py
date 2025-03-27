@@ -29,6 +29,7 @@ def post_handler(
     )
     oidc.client_id = client_id
     oidc.client_secret = client_secret
+    oidc.create_groups = True
     oidc.issuer = issuer
     oidc.redirect_uris = (redirect_uris,)
     oidc.scope = ("openid", "profile", "email")
