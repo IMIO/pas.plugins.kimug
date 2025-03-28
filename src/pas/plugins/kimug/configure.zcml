@@ -27,8 +27,6 @@
   <include package=".indexers" />
   <include package=".vocabularies" />
 
-from pas.plugins.kimug.interfaces import IKimugPlugin
-
   <browser:page
       name="login"
       for="pas.plugins.kimug.interfaces.IKimugPlugin"
