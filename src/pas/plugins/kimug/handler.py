@@ -2,6 +2,7 @@ from plone import api
 from plone.distribution.core import Distribution
 from Products.CMFPlone.Portal import PloneSite
 
+import os
 import transaction
 
 
@@ -18,10 +19,19 @@ def post_handler(
 
     acl_user = site.acl_users
     oidc = acl_user.oidc
-    oidc.client_id = "plone"
-    oidc.client_secret = "12345678910"
-    oidc.issuer = "http://127.0.0.1:8180/realms/plone/"
-    oidc.redirect_uris = ("http://localhost:8080/Plone/acl_users/oidc/callback",)
+    client_id = os.environ.get("keycloak_client_id", "plone")
+    client_secret = os.environ.get("keycloak_client_secret", "12345678910")
+    issuer = os.environ.get(
+        "keycloak_issuer", "http://keycloak.traefik.me/realms/plone/"
+    )
+    redirect_uris = os.environ.get(
+        "keycloak_redirect_uris", "http://localhost:8080/Plone/acl_users/oidc/callback"
+    )
+    oidc.client_id = client_id
+    oidc.client_secret = client_secret
+    oidc.create_groups = True
+    oidc.issuer = issuer
+    oidc.redirect_uris = (redirect_uris,)
     oidc.scope = ("openid", "profile", "email")
 
     api.portal.set_registry_record("plone.external_login_url", "acl_users/oidc/login")

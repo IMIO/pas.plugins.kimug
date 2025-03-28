@@ -1,6 +1,5 @@
 {
     "base": [
-      "pas.plugins.oidc:default",
       "plone.app.contenttypes:default",
       "plonetheme.barceloneta:default"
     ],
