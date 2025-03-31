@@ -54,7 +54,7 @@ setup(
         "setuptools",
         "Products.CMFPlone",
         "plone.api",
-        "pas.plugins.oidc>=2.0.0rc2",
+        "pas.plugins.oidc>=2.0.0b4",
         "plone.distribution",
         "python-keycloak",
     ],
