@@ -55,7 +55,7 @@ setup(
         "Products.CMFPlone",
         "plone.api",
         "pas.plugins.oidc>=2.0.0b4",
-        "plone.distribution",
+        "plone.distribution<=2.0.0b1",
         "python-keycloak",
     ],
     extras_require={
