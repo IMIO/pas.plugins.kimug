@@ -62,7 +62,6 @@ class TestPlugin:
         """Test latest version of default profile."""
         pas = api.portal.get_tool("acl_users")
         plugin = getattr(pas, "oidc")
-        plugin.create_groups = True
         userinfo = OpenIDSchema(sub="kimug", groups=["delib"])
         userinfo_with_groups = OpenIDSchema(
             sub="kimug_with_groups", groups=["smartweb"]

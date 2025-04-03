@@ -23,7 +23,6 @@ setup(
         "Environment :: Web Environment",
         "Framework :: Plone",
         "Framework :: Plone :: Addon",
-        "Framework :: Plone :: Distribution",
         "Framework :: Plone :: 6.0",
         "Framework :: Plone :: 6.1",
         "Programming Language :: Python",
@@ -55,7 +54,6 @@ setup(
         "Products.CMFPlone",
         "plone.api",
         "pas.plugins.oidc>=2.0.0b4",
-        "plone.distribution",
         "python-keycloak",
     ],
     extras_require={

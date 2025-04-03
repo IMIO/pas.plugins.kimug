@@ -44,7 +44,7 @@ site_id = "Plone"
 payload = {
     "title": "pas.plugins.kimug",
     "profile_id": _DEFAULT_PROFILE,
-    "distribution_name": "kimug",
+    "distribution_name": "classic",
     "setup_content": False,
     "default_language": "en",
     "portal_timezone": "UTC",
