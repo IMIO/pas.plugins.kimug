@@ -2,6 +2,7 @@
 # https://github.com/plone/meta/tree/main/config/default
 # See the inline comments on how to expand/tweak this configuration file
 [build-system]
+build-backend = "setuptools.build_meta"
 requires = ["setuptools>=68.2"]
 
 [tool.towncrier]

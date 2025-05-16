@@ -3,6 +3,7 @@ from plone import api
 import ast
 import os
 import re
+import requests
 import transaction
 
 
@@ -65,10 +66,11 @@ def set_oidc_settings(context):
     site = api.portal.get()
     acl_user = site.acl_users
     oidc = acl_user.oidc
+    realm = os.environ.get("keycloak_realm", "plone")
     client_id = os.environ.get("keycloak_client_id", "plone")
     client_secret = os.environ.get("keycloak_client_secret", "12345678910")
     issuer = os.environ.get(
-        "keycloak_issuer", "http://keycloak.traefik.me/realms/plone/"
+        "keycloak_issuer", f"http://keycloak.traefik.me/realms/{realm}/"
     )
     oidc.redirect_uris = get_redirect_uris(oidc.redirect_uris)
     oidc.client_id = client_id
@@ -82,3 +84,17 @@ def set_oidc_settings(context):
 
     transaction.commit()
     return site
+
+
+def get_admin_access_token(keycloak_url, username, password):
+    url = f"{keycloak_url}realms/master/protocol/openid-connect/token"
+    payload = {
+        "client_id": "admin-cli",
+        "username": username,
+        "password": password,
+        "grant_type": "password",
+    }
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    response = requests.post(url=url, headers=headers, data=payload)
+    access_token = response.json()["access_token"]
+    return access_token
