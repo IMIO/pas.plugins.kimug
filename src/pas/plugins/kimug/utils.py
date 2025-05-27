@@ -63,9 +63,7 @@ def get_redirect_uris(current_redirect_uris: tuple[str, ...]) -> tuple[str, ...]
 
 
 def set_oidc_settings(context):
-    site = api.portal.get()
-    acl_user = site.acl_users
-    oidc = acl_user.oidc
+    oidc = get_plugin()
     realm = os.environ.get("keycloak_realm", "plone")
     client_id = os.environ.get("keycloak_client_id", "plone")
     client_secret = os.environ.get("keycloak_client_secret", "12345678910")
@@ -83,7 +81,7 @@ def set_oidc_settings(context):
     api.portal.set_registry_record("plone.external_logout_url", "acl_users/oidc/logout")
 
     transaction.commit()
-    return site
+    # return site
 
 
 def get_admin_access_token(keycloak_url, username, password):
@@ -98,3 +96,10 @@ def get_admin_access_token(keycloak_url, username, password):
     response = requests.post(url=url, headers=headers, data=payload)
     access_token = response.json()["access_token"]
     return access_token
+
+
+def get_plugin():
+    """Get the OIDC plugin."""
+    pas = api.portal.get_tool("acl_users")
+    oidc = pas.oidc
+    return oidc

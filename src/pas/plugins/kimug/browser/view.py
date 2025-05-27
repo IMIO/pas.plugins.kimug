@@ -1,4 +1,5 @@
 from pas.plugins.kimug.utils import get_admin_access_token
+from pas.plugins.kimug.utils import get_plugin
 from plone import api
 from Products.Five.browser import BrowserView
 
@@ -59,9 +60,66 @@ class MigrationView(BrowserView):
         for plone_user in plone_users:
             for keycloak_user in keycloak_users:
                 if plone_user.getProperty("email") == keycloak_user["email"]:
-                    __import__("ipdb").set_trace()
-                    plone_user.id = keycloak_user["id"]
+                    # plone_user.id = keycloak_user["id"]
+                    # save user to pas_plugins.oidc
+                    oidc = get_plugin()
+                    new_user = oidc._create_user(keycloak_user["id"])
+                    userinfo = {
+                        "name": plone_user.getUserName(),
+                        "email": keycloak_user["email"],
+                        "given_name": keycloak_user["firstName"],
+                        "family_name": keycloak_user["lastName"],
+                    }
+                    oidc._update_user(new_user, userinfo, first_login=True)
+
+                    # update owner
+                    self.update_owner(plone_user.id, keycloak_user["id"])
+
+                    # remove user from source_users or from pas_plugins.authentic
+                    # __import__("ipdb").set_trace()
+                    api.user.delete(username=plone_user.id)
                     # plone_user.reindexObject()
                     logger.info(
-                        f"User {plone_user.getProperty('username')} migrated to Keycloak user {keycloak_user['username']}"
+                        f"User {plone_user.id} migrated to Keycloak user {keycloak_user['id']}"
                     )
+
+    def update_owner(self, plone_user_id, keycloak_user_id):
+        """Update the owner of the object."""
+        # get all objects owned by plone_user_id
+        catalog = api.portal.get_tool("portal_catalog")
+        brains = catalog(
+            {
+                "Creator": plone_user_id,
+            }
+        )
+        for brain in brains:
+            obj = brain.getObject()
+            old_modification_date = obj.ModificationDate()
+            self._change_ownership(obj, plone_user_id, keycloak_user_id)
+            obj.reindexObject()
+            obj.setModificationDate(old_modification_date)
+            obj.reindexObject(idxs=["modified"])
+
+    def _change_ownership(self, obj, old_creator, new_owner):
+        """Change object ownership"""
+
+        # 1. Change object ownership
+        acl_users = api.portal.get_tool("acl_users")
+        user = acl_users.getUserById(new_owner)
+
+        if user is None:
+            user = self.membership.getMemberById(new_owner)
+            if user is None:
+                raise KeyError(
+                    "Only retrievable users in this site can be made owners."
+                )
+
+        obj.changeOwnership(user)
+
+        creators = list(obj.listCreators())
+        if old_creator in creators:
+            creators.remove(old_creator)
+        if new_owner in creators:
+            # Don't add same creator twice, but move to front
+            del creators[creators.index(new_owner)]
+        obj.setCreators([new_owner] + creators)
