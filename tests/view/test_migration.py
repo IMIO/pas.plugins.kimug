@@ -42,7 +42,7 @@ def create_keycloak_user(keycloak_url, access_token, realm, payload):
         )
 
 
-def get_keycloak_users(keycloak_url, token, realm):
+def get_keycloak_local_users(keycloak_url, token, realm):
     url = f"{keycloak_url}admin/realms/{realm}/users"
     headers = {"Authorization": "Bearer " + token}
     response = requests.get(url=url, headers=headers)
@@ -71,7 +71,7 @@ def create_plone_user(user_id, username, email):
 
 def init_test_users(portal, keycloak_url, token):
     """Initialize test users in Plone."""
-    all_kc_user_from_plone = get_keycloak_users(
+    all_kc_user_from_plone = get_keycloak_local_users(
         keycloak_url,
         token,
         "plone",
@@ -144,11 +144,7 @@ class TestMigration:
         keycloak_url = "http://keycloak.traefik.me/"
         token = access_token(keycloak_url)
         init_test_users(portal, keycloak_url, token)
-        all_kc_user_from_plone = get_keycloak_users(
-            keycloak_url,
-            token,
-            "plone",
-        )
+        all_kc_user_from_plone = get_keycloak_local_users(keycloak_url, token, "plone")
         assert len(all_kc_user_from_plone) == 4
         assert len(api.user.get_users()) == 4
         assert (
@@ -161,6 +157,7 @@ class TestMigration:
             portal,
             portal.REQUEST,
         )
+        view()
         os.environ["keycloak_realms"] = "plone"
         os.environ["keycloak_admin_user"] = "admin"
         os.environ["keycloak_admin_password"] = "admin"
@@ -190,7 +187,7 @@ class TestMigration:
         app = aq_parent(portal)
         zope.login(app["acl_users"], SITE_OWNER_NAME)
         migrate_plone_user_id_to_keycloak_user_id(api.user.get_users(), users)
-        all_kc_user_from_plone = get_keycloak_users(keycloak_url, token, "plone")
+        all_kc_user_from_plone = get_keycloak_local_users(keycloak_url, token, "plone")
         kc_user_1_id = [
             user["id"]
             for user in all_kc_user_from_plone
