@@ -1,8 +1,12 @@
 from pas.plugins.kimug.plugin import KimugPlugin
 from pas.plugins.kimug.utils import set_oidc_settings
+from pas.plugins.kimug.utils import get_keycloak_users
+from pas.plugins.kimug.utils import migrate_plone_user_id_to_keycloak_user_id
 from plone import api
 from Products.CMFPlone.interfaces import INonInstallable
 from zope.interface import implementer
+
+import os
 
 
 @implementer(INonInstallable)
@@ -37,3 +41,10 @@ def post_install(context):
     _add_plugin(api.portal.get_tool("acl_users"))
 
     set_oidc_settings(context)
+    keycloak_admin_user = os.environ.get("keycloak_admin_user", None)
+    if keycloak_admin_user:
+        kc_users = get_keycloak_users()
+        migrate_plone_user_id_to_keycloak_user_id(
+            api.user.get_users(),
+            kc_users,
+        )

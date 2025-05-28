@@ -1,3 +1,5 @@
+from pas.plugins.kimug.utils import get_keycloak_users
+from pas.plugins.kimug.utils import migrate_plone_user_id_to_keycloak_user_id
 from plone import api
 from plone.app.testing import login
 from plone.app.testing import logout
@@ -159,11 +161,11 @@ class TestMigration:
             portal,
             portal.REQUEST,
         )
-        os.environ["keycloak_realm"] = "plone"
+        os.environ["keycloak_realms"] = "plone"
         os.environ["keycloak_admin_user"] = "admin"
         os.environ["keycloak_admin_password"] = "admin"
         os.environ["keycloak_url"] = keycloak_url
-        users = view.get_keycloak_users()
+        users = get_keycloak_users()
         assert len(users) == 4
 
         # create content with a local plone user
@@ -187,7 +189,7 @@ class TestMigration:
 
         app = aq_parent(portal)
         zope.login(app["acl_users"], SITE_OWNER_NAME)
-        view.migrate_plone_user_id_to_keycloak_user_id(api.user.get_users(), users)
+        migrate_plone_user_id_to_keycloak_user_id(api.user.get_users(), users)
         all_kc_user_from_plone = get_keycloak_users(keycloak_url, token, "plone")
         kc_user_1_id = [
             user["id"]
