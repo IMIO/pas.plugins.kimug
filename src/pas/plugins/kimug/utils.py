@@ -8,7 +8,7 @@ import requests
 import transaction
 
 
-logger = logging.getLogger("collective.big.bang.utils")
+logger = logging.getLogger("pas.plugins.kimug.utils")
 
 
 def sanitize_redirect_uris(redirect_uris: tuple | list | str) -> tuple[str, ...]:
@@ -129,11 +129,13 @@ def get_keycloak_users():
         response = requests.get(url=url, headers=headers)
         if response.status_code == 200 and response.json():
             kc_users.extend(response.json())
+    logger.info(f"Users from Keycloak: {len(kc_users)}")
     return kc_users
 
 
 def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
     """Migrate keycloak user id to plone user id."""
+
     for plone_user in plone_users:
         for keycloak_user in keycloak_users:
             if plone_user.getProperty("email") == keycloak_user["email"]:
@@ -141,23 +143,53 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                 # save user to pas_plugins.oidc
                 oidc = get_plugin()
                 new_user = oidc._create_user(keycloak_user["id"])
+
+                # check if new_user exists, it not get user with id
+                if new_user is None:
+                    try:
+                        new_user = api.user.get(userid=keycloak_user["id"])
+                    except Exception as e:
+                        logger.error(f"Error getting user by email: {e}")
+                        continue
+                # get roles and groups
+                membership = api.portal.get_tool("portal_membership")
+                member = membership.getMemberById(plone_user.id)
+                old_roles = member and member.getRoles() or []
+                if "Authenticated" in old_roles:
+                    old_roles.remove("Authenticated")
+                if "Anonymous" in old_roles:
+                    old_roles.remove("Anonymous")
+                old_groups = (
+                    member and api.group.get_groups(username=plone_user.id) or []
+                )
+                old_group_ids = [group.id for group in old_groups]
+                if "AuthenticatedUsers" in old_group_ids:
+                    old_group_ids.remove("AuthenticatedUsers")
+
                 userinfo = {
-                    "name": plone_user.getUserName(),
+                    "username": keycloak_user["email"],
                     "email": keycloak_user["email"],
                     "given_name": keycloak_user["firstName"],
                     "family_name": keycloak_user["lastName"],
                 }
-                oidc._update_user(new_user, userinfo, first_login=True)
+                try:
+                    oidc._update_user(new_user, userinfo, first_login=True)
+                except Exception as e:
+                    logger.error(f"Not able to update user {keycloak_user["email"]}")
+                    continue
 
                 # update owner
                 update_owner(plone_user.id, keycloak_user["id"])
 
                 # remove user from source_users or from pas_plugins.authentic
-                # __import__("ipdb").set_trace()
                 api.user.delete(username=plone_user.id)
-                # plone_user.reindexObject()
+
+                # set old roles to user
+                api.user.grant_roles(username=keycloak_user["id"], roles=old_roles)
+                for group in old_group_ids:
+                    api.group.add_user(groupname=group, username=keycloak_user["id"])
                 logger.info(
-                    f"User {plone_user.id} migrated to Keycloak user {keycloak_user['id']}"
+                    f"User {plone_user.id} migrated to Keycloak user {keycloak_user['id']} with email {keycloak_user['email']}"
                 )
 
 
@@ -170,8 +202,15 @@ def update_owner(plone_user_id, keycloak_user_id):
             "Creator": plone_user_id,
         }
     )
+    logger.info(
+        f"Updating ownership for {len(brains)} objects owned by {plone_user_id} to {keycloak_user_id}"
+    )
     for brain in brains:
-        obj = brain.getObject()
+        try:
+            obj = brain.getObject()
+        except Exception as e:
+            logger.error(f"Error getting object for brain {brain}: {e}")
+            continue
         old_modification_date = obj.ModificationDate()
         _change_ownership(obj, plone_user_id, keycloak_user_id)
         obj.reindexObject()
@@ -182,7 +221,7 @@ def update_owner(plone_user_id, keycloak_user_id):
 def _change_ownership(obj, old_creator, new_owner):
     """Change object ownership"""
 
-    # 1. Change object ownership
+    # Change object ownership
     acl_users = api.portal.get_tool("acl_users")
     membership = api.portal.get_tool("portal_membership")
     user = acl_users.getUserById(new_owner)
@@ -201,3 +240,17 @@ def _change_ownership(obj, old_creator, new_owner):
         # Don't add same creator twice, but move to front
         del creators[creators.index(new_owner)]
     obj.setCreators([new_owner] + creators)
+
+    # remove old owners
+    roles = list(obj.get_local_roles_for_userid(old_creator))
+    if "Owner" in roles:
+        roles.remove("Owner")
+    if roles:
+        obj.manage_setLocalRoles(old_creator, roles)
+    else:
+        obj.manage_delLocalRoles([old_creator])
+
+    roles = list(obj.get_local_roles_for_userid(new_owner))
+    if "Owner" not in roles:
+        roles.append("Owner")
+        obj.manage_setLocalRoles(new_owner, roles)

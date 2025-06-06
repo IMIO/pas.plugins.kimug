@@ -207,3 +207,12 @@ class TestMigration:
 
     def test_keycloak_users(self, portal):
         pass
+
+    def test_dubble_email(self, portal):
+        pass
+
+    def test_groups(self, portal):
+        pass
+
+    def test_roles(self, portal):
+        pass
