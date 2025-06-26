@@ -135,10 +135,12 @@ def get_keycloak_users():
 
 def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
     """Migrate keycloak user id to plone user id."""
-
     for plone_user in plone_users:
         for keycloak_user in keycloak_users:
-            if plone_user.getProperty("email") == keycloak_user["email"]:
+            if (
+                plone_user.getProperty("email") == keycloak_user["email"]
+                and plone_user.id != keycloak_user["id"]
+            ):
                 # plone_user.id = keycloak_user["id"]
                 # save user to pas_plugins.oidc
                 oidc = get_plugin()
@@ -191,6 +193,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                 logger.info(
                     f"User {plone_user.id} migrated to Keycloak user {keycloak_user['id']} with email {keycloak_user['email']}"
                 )
+                transaction.commit()
 
 
 def update_owner(plone_user_id, keycloak_user_id):
@@ -254,3 +257,40 @@ def _change_ownership(obj, old_creator, new_owner):
     if "Owner" not in roles:
         roles.append("Owner")
         obj.manage_setLocalRoles(new_owner, roles)
+
+
+def clean_authentic_users():
+    """Clean up the pas_plugins.authentic users."""
+    acl_users = api.portal.get_tool("acl_users")
+    authentic = acl_users.get("authentic", None)
+    if authentic is None:
+        logger.warning("No authentic plugin.")
+        return
+    for user in authentic.getUsers():
+        try:
+            # __import__("ipdb").set_trace()
+            # admin_user = api.user.get(username="admin")
+            update_owner(user.getId(), "admin")
+            api.user.delete(username=user.getId())
+        except KeyError:
+            # user does not exist in Plone, remove from authentic users
+            api.user.delete(username=user.getId())
+        logger.info(f"Removed {user.getProperty('email')} from authentic users.")
+
+
+def remove_authentic_plugin():
+    """Remove the authentic plugin."""
+
+    portal_setup = api.portal.get_tool("portal_setup")
+    portal_setup.runAllImportStepsFromProfile("profile-pas.plugins.imio:uninstall")
+
+    acl_users = api.portal.get_tool("acl_users")
+    if "authentic" in acl_users.objectIds():
+        acl_users.manage_delObjects(["authentic"])
+        logger.info("Removed authentic plugin from acl_users.")
+    else:
+        logger.warning("No authentic plugin to remove.")
+
+    # reset login and logout URLs because they are set by the authentic uninstall
+    api.portal.set_registry_record("plone.external_login_url", "acl_users/oidc/login")
+    api.portal.set_registry_record("plone.external_logout_url", "acl_users/oidc/logout")
