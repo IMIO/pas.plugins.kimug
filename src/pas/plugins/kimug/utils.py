@@ -80,6 +80,7 @@ def set_oidc_settings(context):
     oidc.create_groups = True
     oidc.issuer = issuer
     oidc.scope = ("openid", "profile", "email")
+    oidc.userinfo_endpoint_method = "GET"
 
     api.portal.set_registry_record("plone.external_login_url", "acl_users/oidc/login")
     api.portal.set_registry_record("plone.external_logout_url", "acl_users/oidc/logout")
