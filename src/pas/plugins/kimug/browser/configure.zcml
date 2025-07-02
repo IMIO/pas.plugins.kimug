@@ -16,7 +16,7 @@
       for="plone.base.interfaces.IPloneSiteRoot"
       class=".view.MigrationView"
       permission="cmf.ManagePortal"
+      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
       />
-
 
 </configure>

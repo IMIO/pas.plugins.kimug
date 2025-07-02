@@ -98,8 +98,12 @@ def get_admin_access_token(keycloak_url, username, password):
         "grant_type": "password",
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    response = requests.post(url=url, headers=headers, data=payload)
-    access_token = response.json()["access_token"]
+    response = requests.post(url=url, headers=headers, data=payload).json()
+    if response.get("access_token", None) is None:
+        logger.error(f"Error getting access token: {response}")
+        # raise Exception("Could not get access token from Keycloak" "")
+        return None
+    access_token = response["access_token"]
     return access_token
 
 
@@ -112,26 +116,94 @@ def get_plugin():
 
 def get_keycloak_users():
     """Get all keycloak users."""
-    # realm = os.environ.get("keycloak_realm", None)
-    realms = os.environ.get("keycloak_realms", None)
+    realm = os.environ.get("keycloak_realm", None)
+    # realms = os.environ.get("keycloak_realms", None)
     keycloak_url = os.environ.get("keycloak_url")
     keycloak_admin_user = os.environ.get("keycloak_admin_user")
     keycloak_admin_password = os.environ.get("keycloak_admin_password")
     access_token = get_admin_access_token(
         keycloak_url, keycloak_admin_user, keycloak_admin_password
     )
+    if not access_token:
+        logger.error("Could not get access token from Keycloak")
+        return []
     # acl_users = api.portal.get_tool("acl_users")
     # oidc = acl_users.oidc
     # realm = oidc.issuer.split("/")[-1]
     kc_users = []
-    for realm in [r.strip() for r in realms.split(",")]:
-        url = f"{keycloak_url}admin/realms/{realm}/users"
-        headers = {"Authorization": "Bearer " + access_token}
-        response = requests.get(url=url, headers=headers)
-        if response.status_code == 200 and response.json():
-            kc_users.extend(response.json())
+    # for realm in [r.strip() for r in realms.split(",")]:
+    url = f"{keycloak_url}admin/realms/{realm}/users"
+    headers = {"Authorization": "Bearer " + access_token}
+    response = requests.get(url=url, headers=headers)
+    if response.status_code == 200 and response.json():
+        kc_users.extend(response.json())
+
+    kc_users.extend(get_imio_users())
     logger.info(f"Users from Keycloak: {len(kc_users)}")
     return kc_users
+
+
+def get_imio_users():
+    realm = "imio"
+    keycloak_url = os.environ.get("keycloak_url")
+    keycloak_admin_user = os.environ.get("keycloak_admin_user")
+    keycloak_admin_password = os.environ.get("keycloak_admin_password")
+    access_token = get_admin_access_token(
+        keycloak_url, keycloak_admin_user, keycloak_admin_password
+    )
+    if not access_token:
+        logger.error("Could not get access token from Keycloak")
+        return []
+    url = f"{keycloak_url}admin/realms/{realm}/users"
+    headers = {"Authorization": "Bearer " + access_token}
+    response = requests.get(url=url, headers=headers)
+    if response.status_code == 200 and response.json():
+        kc_users = response.json()
+    logger.info(f"Users from Keycloak imio realm: {len(kc_users)}")
+    return [dict(user, id=None) for user in kc_users]
+
+
+def create_keycloak_user(email, first_name, last_name):
+    """Create a Keycloak user."""
+    realm = os.environ.get("keycloak_realm", None)
+    keycloak_url = os.environ.get("keycloak_url")
+    keycloak_admin_user = os.environ.get("keycloak_admin_user")
+    keycloak_admin_password = os.environ.get("keycloak_admin_password")
+    access_token = get_admin_access_token(
+        keycloak_url, keycloak_admin_user, keycloak_admin_password
+    )
+    if not access_token:
+        logger.error("Could not get access token from Keycloak")
+        return None
+
+    url = f"{keycloak_url}admin/realms/{realm}/users"
+    headers = {
+        "Authorization": "Bearer " + access_token,
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "email": email,
+        "firstName": first_name,
+        "lastName": last_name,
+        "enabled": True,
+    }
+    # Check if the user already exists in the realm
+    params = {"email": email}
+    check_response = requests.get(
+        url, headers={"Authorization": "Bearer " + access_token}, params=params
+    )
+    if check_response.status_code == 200 and check_response.json():
+        logger.info(f"User with email {email} already exists in Keycloak realm {realm}")
+        return check_response.json()[0].get("id")
+
+    response = requests.post(url=url, headers=headers, json=payload)
+    if response.status_code == 201:
+        user_id = response.headers.get("Location").split("/")[-1]
+        logger.info(f"User create with email: {email}, id: {user_id}")
+        return user_id
+    else:
+        logger.error(f"Error creating user: {response.json()}")
+        return None
 
 
 def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
@@ -144,6 +216,15 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
             ):
                 # plone_user.id = keycloak_user["id"]
                 # save user to pas_plugins.oidc
+                if not keycloak_user["id"]:
+                    keycloak_user["id"] = create_keycloak_user(
+                        keycloak_user["email"],
+                        keycloak_user["firstName"],
+                        keycloak_user["lastName"],
+                    )
+                if keycloak_user["id"] == plone_user.id:
+                    logger.info(f"User {keycloak_user["email"]} already migrated")
+                    continue
                 oidc = get_plugin()
                 new_user = oidc._create_user(keycloak_user["id"])
 
@@ -269,7 +350,6 @@ def clean_authentic_users():
         return
     for user in authentic.getUsers():
         try:
-            # __import__("ipdb").set_trace()
             # admin_user = api.user.get(username="admin")
             update_owner(user.getId(), "admin")
             api.user.delete(username=user.getId())
