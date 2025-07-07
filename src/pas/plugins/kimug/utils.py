@@ -37,7 +37,7 @@ def sanitize_redirect_uris(redirect_uris: tuple | list | str) -> tuple[str, ...]
 
 def get_redirect_uris(current_redirect_uris: tuple[str, ...]) -> tuple[str, ...]:
     """Get redirect_uris from environment variables."""
-    website_hostname = os.environ.get("website_hostname")
+    website_hostname = os.environ.get("WEBSITE_HOSTNAME")
     if website_hostname is not None:
         website_hostname = f"https://{website_hostname}"
     else:
