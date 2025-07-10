@@ -1,9 +1,16 @@
 from plone import api
+from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+from zope.annotation.interfaces import IAnnotations
 
 import ast
+import logging
 import os
 import re
+import requests
 import transaction
+
+
+logger = logging.getLogger("pas.plugins.kimug.utils")
 
 
 def sanitize_redirect_uris(redirect_uris: tuple | list | str) -> tuple[str, ...]:
@@ -32,7 +39,7 @@ def sanitize_redirect_uris(redirect_uris: tuple | list | str) -> tuple[str, ...]
 
 def get_redirect_uris(current_redirect_uris: tuple[str, ...]) -> tuple[str, ...]:
     """Get redirect_uris from environment variables."""
-    website_hostname = os.environ.get("website_hostname")
+    website_hostname = os.environ.get("WEBSITE_HOSTNAME")
     if website_hostname is not None:
         website_hostname = f"https://{website_hostname}"
     else:
@@ -62,13 +69,12 @@ def get_redirect_uris(current_redirect_uris: tuple[str, ...]) -> tuple[str, ...]
 
 
 def set_oidc_settings(context):
-    site = api.portal.get()
-    acl_user = site.acl_users
-    oidc = acl_user.oidc
+    oidc = get_plugin()
+    realm = os.environ.get("keycloak_realm", "plone")
     client_id = os.environ.get("keycloak_client_id", "plone")
     client_secret = os.environ.get("keycloak_client_secret", "12345678910")
     issuer = os.environ.get(
-        "keycloak_issuer", "http://keycloak.traefik.me/realms/plone/"
+        "keycloak_issuer", f"http://keycloak.traefik.me/realms/{realm}/"
     )
     oidc.redirect_uris = get_redirect_uris(oidc.redirect_uris)
     oidc.client_id = client_id
@@ -76,9 +82,330 @@ def set_oidc_settings(context):
     oidc.create_groups = True
     oidc.issuer = issuer
     oidc.scope = ("openid", "profile", "email")
+    oidc.userinfo_endpoint_method = "GET"
 
     api.portal.set_registry_record("plone.external_login_url", "acl_users/oidc/login")
     api.portal.set_registry_record("plone.external_logout_url", "acl_users/oidc/logout")
 
     transaction.commit()
-    return site
+    # return site
+
+
+def get_admin_access_token(keycloak_url, username, password):
+    url = f"{keycloak_url}realms/master/protocol/openid-connect/token"
+    payload = {
+        "client_id": "admin-cli",
+        "username": username,
+        "password": password,
+        "grant_type": "password",
+    }
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    response = requests.post(url=url, headers=headers, data=payload).json()
+    if response.get("access_token", None) is None:
+        logger.error(f"Error getting access token: {response}")
+        # raise Exception("Could not get access token from Keycloak" "")
+        return None
+    access_token = response["access_token"]
+    return access_token
+
+
+def get_plugin():
+    """Get the OIDC plugin."""
+    pas = api.portal.get_tool("acl_users")
+    oidc = pas.oidc
+    return oidc
+
+
+def get_keycloak_users():
+    """Get all keycloak users."""
+    realm = os.environ.get("keycloak_realm", None)
+    # realms = os.environ.get("keycloak_realms", None)
+    keycloak_url = os.environ.get("keycloak_url")
+    keycloak_admin_user = os.environ.get("keycloak_admin_user")
+    keycloak_admin_password = os.environ.get("keycloak_admin_password")
+    access_token = get_admin_access_token(
+        keycloak_url, keycloak_admin_user, keycloak_admin_password
+    )
+    if not access_token:
+        logger.error("Could not get access token from Keycloak")
+        return []
+    # acl_users = api.portal.get_tool("acl_users")
+    # oidc = acl_users.oidc
+    # realm = oidc.issuer.split("/")[-1]
+    kc_users = []
+    # for realm in [r.strip() for r in realms.split(",")]:
+    url = f"{keycloak_url}admin/realms/{realm}/users"
+    headers = {"Authorization": "Bearer " + access_token}
+    response = requests.get(url=url, headers=headers)
+    if response.status_code == 200 and response.json():
+        kc_users.extend(response.json())
+
+    kc_users.extend(get_imio_users())
+    logger.info(f"Users from Keycloak: {len(kc_users)}")
+    return kc_users
+
+
+def get_imio_users():
+    realm = "imio"
+    keycloak_url = os.environ.get("keycloak_url")
+    keycloak_admin_user = os.environ.get("keycloak_admin_user")
+    keycloak_admin_password = os.environ.get("keycloak_admin_password")
+    access_token = get_admin_access_token(
+        keycloak_url, keycloak_admin_user, keycloak_admin_password
+    )
+    if not access_token:
+        logger.error("Could not get access token from Keycloak")
+        return []
+    url = f"{keycloak_url}admin/realms/{realm}/users"
+    headers = {"Authorization": "Bearer " + access_token}
+    response = requests.get(url=url, headers=headers)
+    if response.status_code == 200 and response.json():
+        kc_users = response.json()
+    logger.info(f"Users from Keycloak imio realm: {len(kc_users)}")
+    return [dict(user, id=None) for user in kc_users]
+
+
+def create_keycloak_user(email, first_name, last_name):
+    """Create a Keycloak user."""
+    realm = os.environ.get("keycloak_realm", None)
+    keycloak_url = os.environ.get("keycloak_url")
+    keycloak_admin_user = os.environ.get("keycloak_admin_user")
+    keycloak_admin_password = os.environ.get("keycloak_admin_password")
+    access_token = get_admin_access_token(
+        keycloak_url, keycloak_admin_user, keycloak_admin_password
+    )
+    if not access_token:
+        logger.error("Could not get access token from Keycloak")
+        return None
+
+    url = f"{keycloak_url}admin/realms/{realm}/users"
+    headers = {
+        "Authorization": "Bearer " + access_token,
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "email": email,
+        "firstName": first_name,
+        "lastName": last_name,
+        "enabled": True,
+    }
+    # Check if the user already exists in the realm
+    params = {"email": email}
+    check_response = requests.get(
+        url, headers={"Authorization": "Bearer " + access_token}, params=params
+    )
+    if check_response.status_code == 200 and check_response.json():
+        logger.info(f"User with email {email} already exists in Keycloak realm {realm}")
+        return check_response.json()[0].get("id")
+
+    response = requests.post(url=url, headers=headers, json=payload)
+    if response.status_code == 201:
+        user_id = response.headers.get("Location").split("/")[-1]
+        logger.info(f"User create with email: {email}, id: {user_id}")
+        return user_id
+    else:
+        logger.error(f"Error creating user: {response.json()}")
+        return None
+
+
+def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
+    """Migrate keycloak user id to plone user id."""
+    for plone_user in plone_users:
+        for keycloak_user in keycloak_users:
+            if (
+                plone_user.getProperty("email") == keycloak_user["email"]
+                and plone_user.id != keycloak_user["id"]
+            ):
+                # plone_user.id = keycloak_user["id"]
+                # save user to pas_plugins.oidc
+                if not keycloak_user["id"]:
+                    keycloak_user["id"] = create_keycloak_user(
+                        keycloak_user["email"],
+                        keycloak_user["firstName"],
+                        keycloak_user["lastName"],
+                    )
+                if keycloak_user["id"] == plone_user.id:
+                    logger.info(f"User {keycloak_user['email']} already migrated")
+                    continue
+                oidc = get_plugin()
+                new_user = oidc._create_user(keycloak_user["id"])
+
+                # check if new_user exists, it not get user with id
+                if new_user is None:
+                    try:
+                        new_user = api.user.get(userid=keycloak_user["id"])
+                    except Exception as e:
+                        logger.error(f"Error getting user by email: {e}")
+                        continue
+                # get roles and groups
+                membership = api.portal.get_tool("portal_membership")
+                member = membership.getMemberById(plone_user.id)
+                old_roles = member and member.getRoles() or []
+                if "Authenticated" in old_roles:
+                    old_roles.remove("Authenticated")
+                if "Anonymous" in old_roles:
+                    old_roles.remove("Anonymous")
+                old_groups = (
+                    member and api.group.get_groups(username=plone_user.id) or []
+                )
+                old_group_ids = [group.id for group in old_groups]
+                if "AuthenticatedUsers" in old_group_ids:
+                    old_group_ids.remove("AuthenticatedUsers")
+
+                userinfo = {
+                    "username": keycloak_user["email"],
+                    "email": keycloak_user["email"],
+                    "given_name": keycloak_user["firstName"],
+                    "family_name": keycloak_user["lastName"],
+                }
+                try:
+                    oidc._update_user(new_user, userinfo, first_login=True)
+                except Exception as e:
+                    logger.error(
+                        f"Not able to update user {keycloak_user['email']}, {e}"
+                    )
+                    continue
+
+                # update owner
+                update_owner(plone_user.id, keycloak_user["id"])
+
+                # remove user from source_users or from pas_plugins.authentic
+                api.user.delete(username=plone_user.id)
+
+                # set old roles to user
+                api.user.grant_roles(username=keycloak_user["id"], roles=old_roles)
+                for group in old_group_ids:
+                    api.group.add_user(groupname=group, username=keycloak_user["id"])
+                logger.info(
+                    f"User {plone_user.id} migrated to Keycloak user {keycloak_user['id']} with email {keycloak_user['email']}"
+                )
+                transaction.commit()
+
+
+def update_owner(plone_user_id, keycloak_user_id):
+    """Update the owner of the object."""
+    # get all objects owned by plone_user_id
+    catalog = api.portal.get_tool("portal_catalog")
+    brains = catalog(
+        {
+            "Creator": plone_user_id,
+        }
+    )
+    logger.info(
+        f"Updating ownership for {len(brains)} objects owned by {plone_user_id} to {keycloak_user_id}"
+    )
+    for brain in brains:
+        try:
+            obj = brain.getObject()
+        except Exception as e:
+            logger.error(f"Error getting object for brain {brain}: {e}")
+            continue
+        old_modification_date = obj.ModificationDate()
+        _change_ownership(obj, plone_user_id, keycloak_user_id)
+        obj.reindexObject()
+        obj.setModificationDate(old_modification_date)
+        obj.reindexObject(idxs=["modified"])
+
+
+def _change_ownership(obj, old_creator, new_owner):
+    """Change object ownership"""
+
+    # Change object ownership
+    acl_users = api.portal.get_tool("acl_users")
+    membership = api.portal.get_tool("portal_membership")
+    user = acl_users.getUserById(new_owner)
+
+    if user is None:
+        user = membership.getMemberById(new_owner)
+        if user is None:
+            raise KeyError("Only retrievable users in this site can be made owners.")
+
+    obj.changeOwnership(user)
+
+    creators = list(obj.listCreators())
+    if old_creator in creators:
+        creators.remove(old_creator)
+    if new_owner in creators:
+        # Don't add same creator twice, but move to front
+        del creators[creators.index(new_owner)]
+    obj.setCreators([new_owner] + creators)
+
+    # remove old owners
+    roles = list(obj.get_local_roles_for_userid(old_creator))
+    if "Owner" in roles:
+        roles.remove("Owner")
+    if roles:
+        obj.manage_setLocalRoles(old_creator, roles)
+    else:
+        obj.manage_delLocalRoles([old_creator])
+
+    roles = list(obj.get_local_roles_for_userid(new_owner))
+    if "Owner" not in roles:
+        roles.append("Owner")
+        obj.manage_setLocalRoles(new_owner, roles)
+
+
+def clean_authentic_users():
+    """Clean up the pas_plugins.authentic users."""
+    acl_users = api.portal.get_tool("acl_users")
+    authentic = acl_users.get("authentic", None)
+    if authentic is None:
+        logger.warning("No authentic plugin.")
+        return
+    for user in authentic.getUsers():
+        try:
+            # admin_user = api.user.get(username="admin")
+            update_owner(user.getId(), "admin")
+            api.user.delete(username=user.getId())
+        except KeyError:
+            # user does not exist in Plone, remove from authentic users
+            api.user.delete(username=user.getId())
+        logger.info(f"Removed {user.getProperty('email')} from authentic users.")
+
+
+def remove_authentic_plugin():
+    """Remove the authentic plugin."""
+
+    portal_setup = api.portal.get_tool("portal_setup")
+    portal_setup.runAllImportStepsFromProfile("profile-pas.plugins.imio:uninstall")
+
+    acl_users = api.portal.get_tool("acl_users")
+    if "authentic" in acl_users.objectIds():
+        acl_users.manage_delObjects(["authentic"])
+        logger.info("Removed authentic plugin from acl_users.")
+    else:
+        logger.warning("No authentic plugin to remove.")
+
+    # reset login and logout URLs because they are set by the authentic uninstall
+    api.portal.set_registry_record("plone.external_login_url", "acl_users/oidc/login")
+    api.portal.set_registry_record("plone.external_logout_url", "acl_users/oidc/logout")
+
+
+def disable_authentication_plugins() -> list[str]:
+    """Disable all authentication plugins that are enabled."""
+    acl_users = api.portal.get_tool("acl_users")
+    site = api.portal.get()
+    annotations = IAnnotations(site)
+    plugins = acl_users.plugins.getAllPlugins(plugin_type="IAuthenticationPlugin")
+    disabled_plugins = []
+    for plugin in plugins.get("active", ()):
+        acl_users.plugins.deactivatePlugin(IAuthenticationPlugin, plugin)
+        disabled_plugins.append(plugin)
+        logger.info(f"Disabled authentication plugin: {plugin}")
+    annotations.setdefault("pas.plugins.kimug.disabled_plugins", []).extend(
+        disabled_plugins
+    )
+    return disabled_plugins
+
+
+def enable_authentication_plugins() -> None:
+    """Enable authentication plugins that were previously disabled with disable_authentication_plugins."""
+    site = api.portal.get()
+    annotations = IAnnotations(site)
+    disabled_plugins = annotations.get("pas.plugins.kimug.disabled_plugins", ()).copy()
+    # __import__("pdb").set_trace()
+    acl_users = api.portal.get_tool("acl_users")
+    for plugin in disabled_plugins:
+        acl_users.plugins.activatePlugin(IAuthenticationPlugin, plugin)
+        annotations["pas.plugins.kimug.disabled_plugins"].remove(plugin)
+        logger.info(f"Enabled authentication plugin: {plugin}")

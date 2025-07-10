@@ -90,7 +90,6 @@ def portal(integration, keycloak, keycloak_api):
     plugin = portal.acl_users.oidc
     with api.env.adopt_roles(["Manager", "Member"]):
         for key, value in keycloak.items():
-            # __import__("ipdb").set_trace()
             setattr(plugin, key, value)
         # for key, value in keycloak_api.items():
         #     name = f"keycloak_groups.{key}"

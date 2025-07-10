@@ -40,6 +40,12 @@ docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak
 .venv/bin/tox -e test -s
 ```
 
+or only one class
+
+```shell
+.venv/bin/pytest tests -s -k TestMigration
+```
+
 ## Contribute
 
 - [Issue Tracker](https://github.com/imio/pas.plugins.kimug/issues)

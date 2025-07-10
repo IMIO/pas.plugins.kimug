@@ -58,6 +58,7 @@ setup(
     ],
     extras_require={
         "test": [
+            "ipdb",
             "zest.releaser[recommended]",
             "zestreleaser.towncrier",
             "plone.app.testing",
