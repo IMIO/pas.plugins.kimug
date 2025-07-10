@@ -1,4 +1,6 @@
 from plone import api
+from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+from zope.annotation.interfaces import IAnnotations
 
 import ast
 import logging
@@ -375,3 +377,33 @@ def remove_authentic_plugin():
     # reset login and logout URLs because they are set by the authentic uninstall
     api.portal.set_registry_record("plone.external_login_url", "acl_users/oidc/login")
     api.portal.set_registry_record("plone.external_logout_url", "acl_users/oidc/logout")
+
+
+def disable_authentication_plugins() -> list[str]:
+    """Disable all authentication plugins that are enabled."""
+    acl_users = api.portal.get_tool("acl_users")
+    site = api.portal.get()
+    annotations = IAnnotations(site)
+    plugins = acl_users.plugins.getAllPlugins(plugin_type="IAuthenticationPlugin")
+    disabled_plugins = []
+    for plugin in plugins.get("active", ()):
+        acl_users.plugins.deactivatePlugin(IAuthenticationPlugin, plugin)
+        disabled_plugins.append(plugin)
+        logger.info(f"Disabled authentication plugin: {plugin}")
+    annotations.setdefault("pas.plugins.kimug.disabled_plugins", []).extend(
+        disabled_plugins
+    )
+    return disabled_plugins
+
+
+def enable_authentication_plugins() -> None:
+    """Enable authentication plugins that were previously disabled with disable_authentication_plugins."""
+    site = api.portal.get()
+    annotations = IAnnotations(site)
+    disabled_plugins = annotations.get("pas.plugins.kimug.disabled_plugins", ()).copy()
+    # __import__("pdb").set_trace()
+    acl_users = api.portal.get_tool("acl_users")
+    for plugin in disabled_plugins:
+        acl_users.plugins.activatePlugin(IAuthenticationPlugin, plugin)
+        annotations["pas.plugins.kimug.disabled_plugins"].remove(plugin)
+        logger.info(f"Enabled authentication plugin: {plugin}")
