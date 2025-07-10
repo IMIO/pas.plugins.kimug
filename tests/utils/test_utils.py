@@ -50,8 +50,8 @@ class TestUtils:
         redirect_uris = utils.get_redirect_uris(current_redirect_uris)
         assert redirect_uris == ("http://localhost:8080/Plone/acl_users/oidc/callback",)
 
-        # set website_hostname
-        os.environ["website_hostname"] = "kimug.imio.be"
+        # set WEBSITE_HOSTNAME
+        os.environ["WEBSITE_HOSTNAME"] = "kimug.imio.be"
         redirect_uris = utils.get_redirect_uris(current_redirect_uris)
         assert redirect_uris == ("https://kimug.imio.be/acl_users/oidc/callback",)
 
@@ -72,7 +72,7 @@ class TestUtils:
             "http://url3",
         )
 
-        os.environ.pop("website_hostname", None)
+        os.environ.pop("WEBSITE_HOSTNAME", None)
         os.environ.pop("keycloak_redirect_uris", None)
 
         # Test with no environment variable set
@@ -80,8 +80,8 @@ class TestUtils:
         assert redirect_uris == redirect_uris_from_oidc_settings + (
             "http://localhost:8080/Plone/acl_users/oidc/callback",
         )
-        # set website_hostname
-        os.environ["website_hostname"] = "kimug.imio.be"
+        # set WEBSITE_HOSTNAME
+        os.environ["WEBSITE_HOSTNAME"] = "kimug.imio.be"
         redirect_uris = utils.get_redirect_uris(redirect_uris_from_oidc_settings)
         assert redirect_uris == redirect_uris_from_oidc_settings + (
             "https://kimug.imio.be/acl_users/oidc/callback",
@@ -97,7 +97,7 @@ class TestUtils:
 
         # 3 : from preprod to prod
 
-        os.environ["website_hostname"] = "kimug.imio.be"
+        os.environ["WEBSITE_HOSTNAME"] = "kimug.imio.be"
         os.environ.pop("keycloak_redirect_uris", None)
         redirect_uris_from_oidc_settings = (
             "https://kimug.preprod.imio.be/acl_users/oidc/callback",
@@ -115,7 +115,7 @@ class TestUtils:
 
         # 4 : uris already in the oidc settings
 
-        os.environ["website_hostname"] = "kimug.imio.be"
+        os.environ["WEBSITE_HOSTNAME"] = "kimug.imio.be"
         os.environ[
             "keycloak_redirect_uris"
         ] = "('https://kimug.imio.be/acl_users/oidc/callback',)"
