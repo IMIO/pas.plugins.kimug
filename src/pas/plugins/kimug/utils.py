@@ -225,7 +225,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                         keycloak_user["lastName"],
                     )
                 if keycloak_user["id"] == plone_user.id:
-                    logger.info(f"User {keycloak_user["email"]} already migrated")
+                    logger.info(f"User {keycloak_user['email']} already migrated")
                     continue
                 oidc = get_plugin()
                 new_user = oidc._create_user(keycloak_user["id"])
@@ -261,7 +261,9 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                 try:
                     oidc._update_user(new_user, userinfo, first_login=True)
                 except Exception as e:
-                    logger.error(f"Not able to update user {keycloak_user["email"]}")
+                    logger.error(
+                        f"Not able to update user {keycloak_user['email']}, {e}"
+                    )
                     continue
 
                 # update owner
