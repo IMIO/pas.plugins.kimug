@@ -210,76 +210,84 @@ def create_keycloak_user(email, first_name, last_name):
 
 def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
     """Migrate keycloak user id to plone user id."""
-    for plone_user in plone_users:
-        for keycloak_user in keycloak_users:
-            if (
-                plone_user.getProperty("email") == keycloak_user["email"]
-                and plone_user.id != keycloak_user["id"]
-            ):
-                # plone_user.id = keycloak_user["id"]
-                # save user to pas_plugins.oidc
-                if not keycloak_user["id"]:
-                    keycloak_user["id"] = create_keycloak_user(
-                        keycloak_user["email"],
-                        keycloak_user["firstName"],
-                        keycloak_user["lastName"],
-                    )
-                if keycloak_user["id"] == plone_user.id:
-                    logger.info(f"User {keycloak_user['email']} already migrated")
-                    continue
-                oidc = get_plugin()
-                new_user = oidc._create_user(keycloak_user["id"])
-
-                # check if new_user exists, it not get user with id
-                if new_user is None:
-                    try:
-                        new_user = api.user.get(userid=keycloak_user["id"])
-                    except Exception as e:
-                        logger.error(f"Error getting user by email: {e}")
+    disable_authentication_plugins()
+    try:
+        for plone_user in plone_users:
+            for keycloak_user in keycloak_users:
+                if (
+                    plone_user.getProperty("email") == keycloak_user["email"]
+                    and plone_user.id != keycloak_user["id"]
+                ):
+                    # plone_user.id = keycloak_user["id"]
+                    # save user to pas_plugins.oidc
+                    if not keycloak_user["id"]:
+                        keycloak_user["id"] = create_keycloak_user(
+                            keycloak_user["email"],
+                            keycloak_user["firstName"],
+                            keycloak_user["lastName"],
+                        )
+                    if keycloak_user["id"] == plone_user.id:
+                        logger.info(f"User {keycloak_user['email']} already migrated")
                         continue
-                # get roles and groups
-                membership = api.portal.get_tool("portal_membership")
-                member = membership.getMemberById(plone_user.id)
-                old_roles = member and member.getRoles() or []
-                if "Authenticated" in old_roles:
-                    old_roles.remove("Authenticated")
-                if "Anonymous" in old_roles:
-                    old_roles.remove("Anonymous")
-                old_groups = (
-                    member and api.group.get_groups(username=plone_user.id) or []
-                )
-                old_group_ids = [group.id for group in old_groups]
-                if "AuthenticatedUsers" in old_group_ids:
-                    old_group_ids.remove("AuthenticatedUsers")
+                    oidc = get_plugin()
+                    new_user = oidc._create_user(keycloak_user["id"])
 
-                userinfo = {
-                    "username": keycloak_user["email"],
-                    "email": keycloak_user["email"],
-                    "given_name": keycloak_user["firstName"],
-                    "family_name": keycloak_user["lastName"],
-                }
-                try:
-                    oidc._update_user(new_user, userinfo, first_login=True)
-                except Exception as e:
-                    logger.error(
-                        f"Not able to update user {keycloak_user['email']}, {e}"
+                    # check if new_user exists, it not get user with id
+                    if new_user is None:
+                        try:
+                            new_user = api.user.get(userid=keycloak_user["id"])
+                        except Exception as e:
+                            logger.error(f"Error getting user by email: {e}")
+                            continue
+                    # get roles and groups
+                    membership = api.portal.get_tool("portal_membership")
+                    member = membership.getMemberById(plone_user.id)
+                    old_roles = member and member.getRoles() or []
+                    if "Authenticated" in old_roles:
+                        old_roles.remove("Authenticated")
+                    if "Anonymous" in old_roles:
+                        old_roles.remove("Anonymous")
+                    old_groups = (
+                        member and api.group.get_groups(username=plone_user.id) or []
                     )
-                    continue
+                    old_group_ids = [group.id for group in old_groups]
+                    if "AuthenticatedUsers" in old_group_ids:
+                        old_group_ids.remove("AuthenticatedUsers")
 
-                # update owner
-                update_owner(plone_user.id, keycloak_user["id"])
+                    userinfo = {
+                        "username": keycloak_user["email"],
+                        "email": keycloak_user["email"],
+                        "given_name": keycloak_user["firstName"],
+                        "family_name": keycloak_user["lastName"],
+                    }
+                    try:
+                        oidc._update_user(new_user, userinfo, first_login=True)
+                    except Exception as e:
+                        logger.error(
+                            f"Not able to update user {keycloak_user['email']}, {e}"
+                        )
+                        continue
 
-                # remove user from source_users or from pas_plugins.authentic
-                api.user.delete(username=plone_user.id)
+                    # update owner
+                    update_owner(plone_user.id, keycloak_user["id"])
 
-                # set old roles to user
-                api.user.grant_roles(username=keycloak_user["id"], roles=old_roles)
-                for group in old_group_ids:
-                    api.group.add_user(groupname=group, username=keycloak_user["id"])
-                logger.info(
-                    f"User {plone_user.id} migrated to Keycloak user {keycloak_user['id']} with email {keycloak_user['email']}"
-                )
-                transaction.commit()
+                    # remove user from source_users or from pas_plugins.authentic
+                    api.user.delete(username=plone_user.id)
+
+                    # set old roles to user
+                    api.user.grant_roles(username=keycloak_user["id"], roles=old_roles)
+                    for group in old_group_ids:
+                        api.group.add_user(
+                            groupname=group, username=keycloak_user["id"]
+                        )
+                    logger.info(
+                        f"User {plone_user.id} migrated to Keycloak user {keycloak_user['id']} with email {keycloak_user['email']}"
+                    )
+                    transaction.commit()
+    except Exception as e:
+        logger.error(f"Error migrating users: {e}")
+    finally:
+        enable_authentication_plugins()
 
 
 def update_owner(plone_user_id, keycloak_user_id):
