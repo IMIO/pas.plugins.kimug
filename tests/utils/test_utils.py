@@ -1,6 +1,5 @@
 from pas.plugins.kimug import utils
 from plone import api
-from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 from zope.annotation.interfaces import IAnnotations
 
 import os
