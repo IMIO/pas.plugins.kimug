@@ -134,7 +134,7 @@ def get_keycloak_users():
     # realm = oidc.issuer.split("/")[-1]
     kc_users = []
     # for realm in [r.strip() for r in realms.split(",")]:
-    url = f"{keycloak_url}admin/realms/{realm}/users"
+    url = f"{keycloak_url}admin/realms/{realm}/users?max=100000"
     headers = {"Authorization": "Bearer " + access_token}
     response = requests.get(url=url, headers=headers)
     if response.status_code == 200 and response.json():
@@ -211,6 +211,9 @@ def create_keycloak_user(email, first_name, last_name):
 def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
     """Migrate keycloak user id to plone user id."""
     disable_authentication_plugins()
+    len_plone_users = len(plone_users)
+    len_keycloak_users = len(keycloak_users)
+    user_migrated = 0
     try:
         for plone_user in plone_users:
             for keycloak_user in keycloak_users:
@@ -269,6 +272,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                         continue
 
                     # update owner
+                    logger.info(f"Update owner of {keycloak_user['email']}")
                     update_owner(plone_user.id, keycloak_user["id"])
 
                     # remove user from source_users or from pas_plugins.authentic
@@ -284,6 +288,10 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                         f"User {plone_user.id} migrated to Keycloak user {keycloak_user['id']} with email {keycloak_user['email']}"
                     )
                     transaction.commit()
+                    user_migrated += 1
+                    logger.info(
+                        f"User {user_migrated}/{len_keycloak_users}  (plone: {len_plone_users})"
+                    )
     except Exception as e:
         logger.error(f"Error migrating users: {e}")
     finally:
