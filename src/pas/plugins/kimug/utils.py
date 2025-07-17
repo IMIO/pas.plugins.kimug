@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import requests
+import time
 import transaction
 
 
@@ -217,12 +218,11 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
     old_users = {
         plone_user.getProperty("email"): plone_user.id for plone_user in plone_users
     }
-    __import__("ipdb").set_trace()
     try:
         for keycloak_user in keycloak_users:
             plone_user = old_users.get(keycloak_user["email"], None)
             if plone_user is not None and plone_user != keycloak_user["id"]:
-
+                start = time.time()
                 # plone_user.id = keycloak_user["id"]
                 # save user to pas_plugins.oidc
                 if not keycloak_user["id"]:
@@ -244,6 +244,9 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                     except Exception as e:
                         logger.error(f"Error getting user by email: {e}")
                         continue
+                creation = time.time()
+                logging.info(f"time for creation: {creation - start:.4f} secondes")
+
                 # get roles and groups
                 membership = api.portal.get_tool("portal_membership")
                 member = membership.getMemberById(plone_user)
@@ -270,14 +273,19 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                         f"Not able to update user {keycloak_user['email']}, {e}"
                     )
                     continue
-
+                update = time.time()
+                logging.info(
+                    f"time for updating user: {update - creation:.4f} secondes"
+                )
                 # update owner
                 logger.info(f"Update owner of {keycloak_user['email']}")
                 update_owner(plone_user, keycloak_user["id"])
-
+                owner = time.time()
+                logging.info(f"time for owner user: {owner - update:.4f} secondes")
                 # remove user from source_users or from pas_plugins.authentic
                 api.user.delete(username=plone_user)
-
+                delete = time.time()
+                logging.info(f"time for delete user: {delete - owner:.4f} secondes")
                 # set old roles to user
                 api.user.grant_roles(username=keycloak_user["id"], roles=old_roles)
                 for group in old_group_ids:
@@ -285,11 +293,17 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                 logger.info(
                     f"User {plone_user} migrated to Keycloak user {keycloak_user['id']} with email {keycloak_user['email']}"
                 )
+                roles = time.time()
+                logging.info(f"time for roles: {roles - delete:.4f} secondes")
                 transaction.commit()
+                trans = time.time()
+                logging.info(f"time for commit trans: {trans - roles:.4f} secondes")
                 user_migrated += 1
                 logger.info(
                     f"User {user_migrated}/{len_plone_users}  (keycloak: {len_keycloak_users})"
                 )
+                end = time.time()
+                logging.info(f"time for one user: {end - start:.4f} secondes")
     except Exception as e:
         logger.error(f"Error migrating users: {e}")
     finally:
