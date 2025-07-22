@@ -215,6 +215,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
     len_plone_users = len(plone_users)
     len_keycloak_users = len(keycloak_users)
     user_migrated = 0
+    user_to_delete = []
     old_users = {
         plone_user.getProperty("email"): plone_user.id for plone_user in plone_users
     }
@@ -283,7 +284,8 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                 owner = time.time()
                 logging.info(f"time for owner user: {owner - update:.4f} secondes")
                 # remove user from source_users or from pas_plugins.authentic
-                api.user.delete(username=plone_user)
+                # api.user.delete(username=plone_user)
+                user_to_delete.append(plone_user)
                 delete = time.time()
                 logging.info(f"time for delete user: {delete - owner:.4f} secondes")
                 # set old roles to user
@@ -295,6 +297,8 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                 )
                 roles = time.time()
                 logging.info(f"time for roles: {roles - delete:.4f} secondes")
+                # if user_migrated % 10 == 0 and user_migrated != 0:
+                #     start_trans = time.time()
                 transaction.commit()
                 trans = time.time()
                 logging.info(f"time for commit trans: {trans - roles:.4f} secondes")
@@ -304,6 +308,14 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                 )
                 end = time.time()
                 logging.info(f"time for one user: {end - start:.4f} secondes")
+        delete_all = time.time()
+        portal_membership = api.portal.get_tool("portal_membership")
+        portal_membership.deleteMembers(user_to_delete)
+        transaction.commit()
+        delete_all_end = time.time()
+        logging.info(
+            f"time delete all users: {delete_all_end - delete_all:.4f} secondes"
+        )
     except Exception as e:
         logger.error(f"Error migrating users: {e}")
     finally:
@@ -377,6 +389,7 @@ def clean_authentic_users():
     """Clean up the pas_plugins.authentic users."""
     acl_users = api.portal.get_tool("acl_users")
     authentic = acl_users.get("authentic", None)
+    user_to_delete = []
     if authentic is None:
         logger.warning("No authentic plugin.")
         return
@@ -384,11 +397,14 @@ def clean_authentic_users():
         try:
             # admin_user = api.user.get(username="admin")
             update_owner(user.getId(), "admin")
-            api.user.delete(username=user.getId())
+            user_to_delete.append(user.getId())
         except KeyError:
+            user_to_delete.append(user.getId())
             # user does not exist in Plone, remove from authentic users
-            api.user.delete(username=user.getId())
-        logger.info(f"Removed {user.getProperty('email')} from authentic users.")
+            logger.info(f"Removed {user.getProperty('email')} from authentic users.")
+    portal_membership = api.portal.get_tool("portal_membership")
+    portal_membership.deleteMembers(user_to_delete)
+    transaction.commit()
 
 
 def remove_authentic_plugin():
