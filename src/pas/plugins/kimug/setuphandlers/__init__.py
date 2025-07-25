@@ -2,13 +2,18 @@ from pas.plugins.kimug.plugin import KimugPlugin
 from pas.plugins.kimug.utils import clean_authentic_users
 from pas.plugins.kimug.utils import get_keycloak_users
 from pas.plugins.kimug.utils import migrate_plone_user_id_to_keycloak_user_id
+from pas.plugins.kimug.utils import realm_exists
 from pas.plugins.kimug.utils import remove_authentic_plugin
 from pas.plugins.kimug.utils import set_oidc_settings
 from plone import api
 from Products.CMFPlone.interfaces import INonInstallable
 from zope.interface import implementer
 
+import logging
 import os
+
+
+logger = logging.getLogger("pas.plugins.kimug.utils")
 
 
 @implementer(INonInstallable)
@@ -44,11 +49,15 @@ def post_install(context):
 
     set_oidc_settings(context)
     keycloak_admin_user = os.environ.get("keycloak_admin_user", None)
+    keycloak_realm = os.environ.get("keycloak_realm", "")
     if keycloak_admin_user:
-        kc_users = get_keycloak_users()
-        migrate_plone_user_id_to_keycloak_user_id(
-            api.user.get_users(),
-            kc_users,
-        )
-        clean_authentic_users()
-        remove_authentic_plugin()
+        if realm_exists(keycloak_realm):
+            kc_users = get_keycloak_users()
+            migrate_plone_user_id_to_keycloak_user_id(
+                api.user.get_users(),
+                kc_users,
+            )
+            clean_authentic_users()
+            remove_authentic_plugin()
+        else:
+            logger.error(f"Keycloak realm '{keycloak_realm}' does not exist.")

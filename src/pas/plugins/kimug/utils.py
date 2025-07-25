@@ -447,9 +447,26 @@ def enable_authentication_plugins() -> None:
     site = api.portal.get()
     annotations = IAnnotations(site)
     disabled_plugins = annotations.get("pas.plugins.kimug.disabled_plugins", ()).copy()
-    # __import__("pdb").set_trace()
     acl_users = api.portal.get_tool("acl_users")
     for plugin in disabled_plugins:
         acl_users.plugins.activatePlugin(IAuthenticationPlugin, plugin)
         annotations["pas.plugins.kimug.disabled_plugins"].remove(plugin)
         logger.info(f"Enabled authentication plugin: {plugin}")
+
+
+def realm_exists(realm: str) -> bool:
+    """Check if a Keycloak realm exists."""
+    keycloak_url = os.environ.get("keycloak_url")
+    keycloak_admin_user = os.environ.get("keycloak_admin_user")
+    keycloak_admin_password = os.environ.get("keycloak_admin_password")
+    access_token = get_admin_access_token(
+        keycloak_url, keycloak_admin_user, keycloak_admin_password
+    )
+    if not access_token:
+        logger.error("Could not get access token from Keycloak")
+        return False
+
+    url = f"{keycloak_url}admin/realms/{realm}"
+    headers = {"Authorization": "Bearer " + access_token}
+    response = requests.get(url=url, headers=headers)
+    return response.status_code == 200
