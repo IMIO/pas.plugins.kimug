@@ -2,7 +2,8 @@ from pas.plugins.kimug.plugin import KimugPlugin
 from pas.plugins.kimug.utils import clean_authentic_users
 from pas.plugins.kimug.utils import get_keycloak_users
 from pas.plugins.kimug.utils import migrate_plone_user_id_to_keycloak_user_id
-from pas.plugins.kimug.utils import remove_authentic_plugin
+
+# from pas.plugins.kimug.utils import remove_authentic_plugin
 from pas.plugins.kimug.utils import set_oidc_settings
 from plone import api
 from Products.CMFPlone.interfaces import INonInstallable
@@ -51,4 +52,4 @@ def post_install(context):
             kc_users,
         )
         clean_authentic_users()
-        remove_authentic_plugin()
+        # remove_authentic_plugin()

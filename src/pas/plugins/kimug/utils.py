@@ -394,14 +394,18 @@ def clean_authentic_users():
         logger.warning("No authentic plugin.")
         return
     for user in authentic.getUsers():
-        try:
-            # admin_user = api.user.get(username="admin")
-            update_owner(user.getId(), "admin")
-            user_to_delete.append(user.getId())
-        except KeyError:
-            user_to_delete.append(user.getId())
-            # user does not exist in Plone, remove from authentic users
-            logger.info(f"Removed {user.getProperty('email')} from authentic users.")
+        username = api.user.get(user.getId()).getUserName()
+        if "iateleservices" not in username:
+            try:
+                # admin_user = api.user.get(username="admin")
+                update_owner(user.getId(), "admin")
+                user_to_delete.append(user.getId())
+            except KeyError:
+                user_to_delete.append(user.getId())
+                # user does not exist in Plone, remove from authentic users
+                logger.info(
+                    f"Removed {user.getProperty('email')} from authentic users."
+                )
     portal_membership = api.portal.get_tool("portal_membership")
     portal_membership.deleteMembers(user_to_delete)
     transaction.commit()
