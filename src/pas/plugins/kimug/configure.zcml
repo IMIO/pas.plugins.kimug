@@ -27,36 +27,10 @@
   <include package=".indexers" />
   <include package=".vocabularies" />
 
-  <browser:page
-      name="login"
-      for="pas.plugins.kimug.interfaces.IKimugPlugin"
-      class="pas.plugins.oidc.browser.view.LoginView"
-      permission="zope2.View"
-      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
-      />
 
-  <browser:page
-      name="require_login"
-      for="pas.plugins.kimug.interfaces.IKimugPlugin"
-      class="pas.plugins.oidc.browser.view.RequireLoginView"
-      permission="zope2.View"
-      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
-      />
+  <include package="plone.restapi" />
 
-  <browser:page
-      name="logout"
-      for="pas.plugins.kimug.interfaces.IKimugPlugin"
-      class="pas.plugins.oidc.browser.view.LogoutView"
-      permission="zope2.View"
-      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
-      />
-
-  <browser:page
-      name="callback"
-      for="pas.plugins.kimug.interfaces.IKimugPlugin"
-      class="pas.plugins.oidc.browser.view.CallbackView"
-      permission="zope2.View"
-      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
-      />
+  <include package="pas.plugins.oidc.services.login" />
+  <include package="pas.plugins.oidc.services.oidc" />
 
 </configure>
