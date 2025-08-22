@@ -1,6 +1,7 @@
 from AccessControl import ClassSecurityInfo
 from AccessControl.class_init import InitializeClass
-#from jwt.algorithms import RSAAlgorithm
+
+# from jwt.algorithms import RSAAlgorithm
 from pas.plugins.kimug.interfaces import IKimugPlugin
 from pas.plugins.oidc.plugins import OIDCPlugin
 from Products.PageTemplates.PageTemplateFile import PageTemplateFile
@@ -9,7 +10,8 @@ from zope.interface import implementer
 
 import jwt
 import os
-#import requests
+
+# import requests
 
 
 def manage_addKimugPlugin(context, id="oidc", title="", RESPONSE=None, **kw):
