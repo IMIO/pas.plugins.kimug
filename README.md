@@ -2,6 +2,8 @@
 
 A PAS plugin to set roles to imio keycloak users
 
+Kimug is a acronym for "Keycloak IMio User & Group"
+
 ## Installation
 
 ### Install pas.plugins.kimug:
