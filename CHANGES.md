@@ -1,4 +1,4 @@
-## 1.1.1 (unreleased)
+## 1.1.1 (2025-08-26)
 
 
 - Migrate users form Authentic to Keycloal OIDC plugin.
