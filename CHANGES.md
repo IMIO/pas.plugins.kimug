@@ -1,7 +1,8 @@
 ## 1.1.1 (unreleased)
 
 
-- Nothing changed yet.
+- Migrate users form Authentic to Keycloal OIDC plugin.
+  ["bsuttor"]
 
 
 ## 1.1.0 (2025-07-10)
