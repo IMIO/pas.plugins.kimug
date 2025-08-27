@@ -380,8 +380,6 @@ def _change_ownership(obj, old_creator, new_owner):
     obj.setCreators([new_owner] + creators)
 
     # remove old owners
-    # if user.getProperty("email") == "alain.blavier@ans-commune.be":
-    #     __import__("ipdb").set_trace()
     roles = list(obj.get_local_roles_for_userid(old_creator))
     if "Owner" in roles:
         roles.remove("Owner")
@@ -423,7 +421,7 @@ def clean_authentic_users():
         if "iateleservices" not in username:
             try:
                 # admin_user = api.user.get(username="admin")
-                update_owner(user.getId(), "admin")
+                update_owner(user.getId(), "admin", [])
                 user_to_delete.append(user.getId())
             except KeyError:
                 user_to_delete.append(user.getId())
@@ -511,21 +509,4 @@ def get_list_local_roles():
             if roles:
                 if ob not in olr:
                     olr.append(ob)
-        # lra = putils.isLocalRoleAcquired(ob)
-        # we log too if acquisition is disabled
-        # if olr or not lra:
-        #     __import__("ipdb").set_trace()
-        #     # out.append(
-        #     #     '<a href="%s/@@sharing">%s</a> : %s'
-        #     #     % (
-        #     #         ob.absolute_url(),
-        #     #         "/" + "/".join(purl.getRelativeContentPath(ob)),
-        #     #         (
-        #     #             lra
-        #     #             and " "
-        #     #             or '<span style="color:red">acquisition disabled !</span>'
-        #     #         ),
-        #     #     )
-        #     # )
-        #     # out += olr
     return olr
