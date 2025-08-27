@@ -1,4 +1,4 @@
-## 1.1.2 (unreleased)
+## 1.1.2 (2025-08-27)
 
 
 - Add fogrot local roles on migration to Keycloak.
