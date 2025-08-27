@@ -219,6 +219,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
     old_users = {
         plone_user.getProperty("email"): plone_user.id for plone_user in plone_users
     }
+    list_local_roles = get_list_local_roles()
     try:
         for keycloak_user in keycloak_users:
             plone_user = old_users.get(keycloak_user["email"], None)
@@ -243,7 +244,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                     try:
                         new_user = api.user.get(userid=keycloak_user["id"])
                     except Exception as e:
-                        logger.error(f"Error getting user by email: {e}")
+                        logger.debug(f"Error getting user by email: {e}")
                         continue
                 creation = time.time()
                 logging.info(f"time for creation: {creation - start:.4f} secondes")
@@ -280,7 +281,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                 )
                 # update owner
                 logger.info(f"Update owner of {keycloak_user['email']}")
-                update_owner(plone_user, keycloak_user["id"])
+                update_owner(plone_user, keycloak_user["id"], list_local_roles)
                 owner = time.time()
                 logging.info(f"time for owner user: {owner - update:.4f} secondes")
                 # remove user from source_users or from pas_plugins.authentic
@@ -322,7 +323,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
         enable_authentication_plugins()
 
 
-def update_owner(plone_user_id, keycloak_user_id):
+def update_owner(plone_user_id, keycloak_user_id, list_local_roles):
     """Update the owner of the object."""
     # get all objects owned by plone_user_id
     catalog = api.portal.get_tool("portal_catalog")
@@ -345,6 +346,13 @@ def update_owner(plone_user_id, keycloak_user_id):
         obj.reindexObject()
         obj.setModificationDate(old_modification_date)
         obj.reindexObject(idxs=["modified"])
+
+    for obj_with_localrole_ in list_local_roles:
+        old_modification_date = obj_with_localrole_.ModificationDate()
+        _change_local_roles(obj_with_localrole_, plone_user_id, keycloak_user_id)
+        obj_with_localrole_.reindexObject()
+        obj_with_localrole_.setModificationDate(old_modification_date)
+        obj_with_localrole_.reindexObject(idxs=["modified"])
 
 
 def _change_ownership(obj, old_creator, new_owner):
@@ -371,6 +379,8 @@ def _change_ownership(obj, old_creator, new_owner):
     obj.setCreators([new_owner] + creators)
 
     # remove old owners
+    # if user.getProperty("email") == "alain.blavier@ans-commune.be":
+    #     __import__("ipdb").set_trace()
     roles = list(obj.get_local_roles_for_userid(old_creator))
     if "Owner" in roles:
         roles.remove("Owner")
@@ -382,6 +392,13 @@ def _change_ownership(obj, old_creator, new_owner):
     roles = list(obj.get_local_roles_for_userid(new_owner))
     if "Owner" not in roles:
         roles.append("Owner")
+        obj.manage_setLocalRoles(new_owner, roles)
+
+
+def _change_local_roles(obj, old_creator, new_owner):
+    roles = list(obj.get_local_roles_for_userid(new_owner))
+    if roles:
+        __import__("ipdb").set_trace()
         obj.manage_setLocalRoles(new_owner, roles)
 
 
@@ -457,3 +474,50 @@ def enable_authentication_plugins() -> None:
         acl_users.plugins.activatePlugin(IAuthenticationPlugin, plugin)
         annotations["pas.plugins.kimug.disabled_plugins"].remove(plugin)
         logger.info(f"Enabled authentication plugin: {plugin}")
+
+
+def get_objects_from_catalog():
+    catalog = api.portal.get_tool("portal_catalog")
+    brains = catalog(sort_on="path")
+    objects = []
+    for brain in brains:
+        try:
+            obj = brain.getObject()
+            objects.append(obj)
+        except Exception as e:
+            # logger.error(f"Error getting object from brain {brain}: {e}")
+            continue
+    objects.insert(0, api.portal.get())
+    return objects
+
+
+def get_list_local_roles():
+    avoided_roles = ["Owner"]
+    acl = api.portal.get_tool("acl_users")
+    putils = api.portal.get_tool("plone_utils")
+    objects = get_objects_from_catalog()
+    olr = []
+    for ob in objects:
+        for username, roles, userType, userid in acl._getLocalRolesForDisplay(ob):
+            roles = [role for role in roles if role not in avoided_roles]
+            if roles:
+                if ob not in olr:
+                    olr.append(ob)
+        # lra = putils.isLocalRoleAcquired(ob)
+        # we log too if acquisition is disabled
+        # if olr or not lra:
+        #     __import__("ipdb").set_trace()
+        #     # out.append(
+        #     #     '<a href="%s/@@sharing">%s</a> : %s'
+        #     #     % (
+        #     #         ob.absolute_url(),
+        #     #         "/" + "/".join(purl.getRelativeContentPath(ob)),
+        #     #         (
+        #     #             lra
+        #     #             and " "
+        #     #             or '<span style="color:red">acquisition disabled !</span>'
+        #     #         ),
+        #     #     )
+        #     # )
+        #     # out += olr
+    return olr
