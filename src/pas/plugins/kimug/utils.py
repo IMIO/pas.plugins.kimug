@@ -1,3 +1,4 @@
+from Acquisition import aq_base
 from plone import api
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 from zope.annotation.interfaces import IAnnotations
@@ -396,10 +397,17 @@ def _change_ownership(obj, old_creator, new_owner):
 
 
 def _change_local_roles(obj, old_creator, new_owner):
-    roles = list(obj.get_local_roles_for_userid(new_owner))
-    if roles:
-        __import__("ipdb").set_trace()
-        obj.manage_setLocalRoles(new_owner, roles)
+    # localroles = list(obj.get_local_roles_for_userid(old_creator))
+    obj_url = obj.absolute_url()
+    if getattr(aq_base(obj), "__ac_local_roles__", None) is not None:
+        localroles = obj.__ac_local_roles__
+        if old_creator in list(localroles.keys()):
+            roles = localroles[old_creator]
+            if new_owner != old_creator:
+                obj.manage_delLocalRoles([old_creator])
+                obj.manage_setLocalRoles(userid=new_owner, roles=roles)
+                # obj.reindexObject()
+                logger.info(f"Migrated userids in local roles on {obj_url}")
 
 
 def clean_authentic_users():

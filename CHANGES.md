@@ -1,14 +1,14 @@
 ## 1.1.2 (unreleased)
 
 
-- Nothing changed yet.
-
+- Add fogrot local roles on migration to Keycloak.
+  [bsuttor & rdubois]
 
 ## 1.1.1 (2025-08-26)
 
 
 - Migrate users form Authentic to Keycloal OIDC plugin.
-  ["bsuttor"]
+  [bsuttor]
 
 
 ## 1.1.0 (2025-07-10)
