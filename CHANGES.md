@@ -1,7 +1,8 @@
 ## 1.1.4 (unreleased)
 
 
-- Nothing changed yet.
+- You should rerun migration as many times as you want.
+  [bsuttor]
 
 
 ## 1.1.3 (2025-08-28)
