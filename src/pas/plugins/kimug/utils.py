@@ -1,3 +1,4 @@
+from Acquisition import aq_base
 from plone import api
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 from zope.annotation.interfaces import IAnnotations
@@ -219,6 +220,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
     old_users = {
         plone_user.getProperty("email"): plone_user.id for plone_user in plone_users
     }
+    list_local_roles = get_list_local_roles()
     try:
         for keycloak_user in keycloak_users:
             plone_user = old_users.get(keycloak_user["email"], None)
@@ -243,7 +245,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                     try:
                         new_user = api.user.get(userid=keycloak_user["id"])
                     except Exception as e:
-                        logger.error(f"Error getting user by email: {e}")
+                        logger.debug(f"Error getting user by email: {e}")
                         continue
                 creation = time.time()
                 logging.info(f"time for creation: {creation - start:.4f} secondes")
@@ -280,7 +282,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
                 )
                 # update owner
                 logger.info(f"Update owner of {keycloak_user['email']}")
-                update_owner(plone_user, keycloak_user["id"])
+                update_owner(plone_user, keycloak_user["id"], list_local_roles)
                 owner = time.time()
                 logging.info(f"time for owner user: {owner - update:.4f} secondes")
                 # remove user from source_users or from pas_plugins.authentic
@@ -322,7 +324,7 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
         enable_authentication_plugins()
 
 
-def update_owner(plone_user_id, keycloak_user_id):
+def update_owner(plone_user_id, keycloak_user_id, list_local_roles):
     """Update the owner of the object."""
     # get all objects owned by plone_user_id
     catalog = api.portal.get_tool("portal_catalog")
@@ -345,6 +347,13 @@ def update_owner(plone_user_id, keycloak_user_id):
         obj.reindexObject()
         obj.setModificationDate(old_modification_date)
         obj.reindexObject(idxs=["modified"])
+
+    for obj_with_localrole_ in list_local_roles:
+        old_modification_date = obj_with_localrole_.ModificationDate()
+        _change_local_roles(obj_with_localrole_, plone_user_id, keycloak_user_id)
+        obj_with_localrole_.reindexObject()
+        obj_with_localrole_.setModificationDate(old_modification_date)
+        obj_with_localrole_.reindexObject(idxs=["modified"])
 
 
 def _change_ownership(obj, old_creator, new_owner):
@@ -385,6 +394,20 @@ def _change_ownership(obj, old_creator, new_owner):
         obj.manage_setLocalRoles(new_owner, roles)
 
 
+def _change_local_roles(obj, old_creator, new_owner):
+    # localroles = list(obj.get_local_roles_for_userid(old_creator))
+    obj_url = obj.absolute_url()
+    if getattr(aq_base(obj), "__ac_local_roles__", None) is not None:
+        localroles = obj.__ac_local_roles__
+        if old_creator in list(localroles.keys()):
+            roles = localroles[old_creator]
+            if new_owner != old_creator:
+                obj.manage_delLocalRoles([old_creator])
+                obj.manage_setLocalRoles(userid=new_owner, roles=roles)
+                # obj.reindexObject()
+                logger.info(f"Migrated userids in local roles on {obj_url}")
+
+
 def clean_authentic_users():
     """Clean up the pas_plugins.authentic users."""
     acl_users = api.portal.get_tool("acl_users")
@@ -394,14 +417,18 @@ def clean_authentic_users():
         logger.warning("No authentic plugin.")
         return
     for user in authentic.getUsers():
-        try:
-            # admin_user = api.user.get(username="admin")
-            update_owner(user.getId(), "admin")
-            user_to_delete.append(user.getId())
-        except KeyError:
-            user_to_delete.append(user.getId())
-            # user does not exist in Plone, remove from authentic users
-            logger.info(f"Removed {user.getProperty('email')} from authentic users.")
+        username = api.user.get(user.getId()).getUserName()
+        if "iateleservices" not in username:
+            try:
+                # admin_user = api.user.get(username="admin")
+                update_owner(user.getId(), "admin", [])
+                user_to_delete.append(user.getId())
+            except KeyError:
+                user_to_delete.append(user.getId())
+                # user does not exist in Plone, remove from authentic users
+                logger.info(
+                    f"Removed {user.getProperty('email')} from authentic users."
+                )
     portal_membership = api.portal.get_tool("portal_membership")
     portal_membership.deleteMembers(user_to_delete)
     transaction.commit()
@@ -470,3 +497,33 @@ def realm_exists(realm: str) -> bool:
     headers = {"Authorization": "Bearer " + access_token}
     response = requests.get(url=url, headers=headers)
     return response.status_code == 200
+
+
+def get_objects_from_catalog():
+    catalog = api.portal.get_tool("portal_catalog")
+    brains = catalog(sort_on="path")
+    objects = []
+    for brain in brains:
+        try:
+            obj = brain.getObject()
+            objects.append(obj)
+        except Exception as e:
+            # logger.error(f"Error getting object from brain {brain}: {e}")
+            continue
+    objects.insert(0, api.portal.get())
+    return objects
+
+
+def get_list_local_roles():
+    avoided_roles = ["Owner"]
+    acl = api.portal.get_tool("acl_users")
+    putils = api.portal.get_tool("plone_utils")
+    objects = get_objects_from_catalog()
+    olr = []
+    for ob in objects:
+        for username, roles, userType, userid in acl._getLocalRolesForDisplay(ob):
+            roles = [role for role in roles if role not in avoided_roles]
+            if roles:
+                if ob not in olr:
+                    olr.append(ob)
+    return olr
