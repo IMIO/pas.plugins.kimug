@@ -1,4 +1,4 @@
-## 1.1.4 (unreleased)
+## 1.1.4 (2025-08-28)
 
 
 - You should rerun migration as many times as you want.
