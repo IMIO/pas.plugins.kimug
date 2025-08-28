@@ -499,6 +499,25 @@ def realm_exists(realm: str) -> bool:
     return response.status_code == 200
 
 
+def varenvs_exist() -> bool:
+    """Check if all required environment variables are set."""
+    required_vars = [
+        "keycloak_admin_user",
+        "keycloak_admin_password",
+        "keycloak_url",
+        "keycloak_client_id",
+        "keycloak_client_secret",
+        "keycloak_issuer",
+        "keycloak_redirect_uris",
+        "keycloak_realm",
+    ]
+    missing_vars = [var for var in required_vars if not os.environ.get(var)]
+    if missing_vars:
+        logger.error(f"Missing environment variables: {', '.join(missing_vars)}")
+        return False
+    return True
+
+
 def get_objects_from_catalog():
     catalog = api.portal.get_tool("portal_catalog")
     brains = catalog(sort_on="path")

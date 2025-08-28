@@ -5,6 +5,7 @@ from pas.plugins.kimug.utils import clean_authentic_users
 from pas.plugins.kimug.utils import get_keycloak_users
 from pas.plugins.kimug.utils import migrate_plone_user_id_to_keycloak_user_id
 from pas.plugins.kimug.utils import realm_exists
+from pas.plugins.kimug.utils import varenvs_exist
 from pas.plugins.kimug.utils import remove_authentic_plugin
 from pas.plugins.kimug.utils import set_oidc_settings
 from plone import api
@@ -50,9 +51,9 @@ def post_install(context):
     _add_plugin(api.portal.get_tool("acl_users"))
 
     set_oidc_settings(context)
-    keycloak_admin_user = os.environ.get("keycloak_admin_user", None)
-    keycloak_realm = os.environ.get("keycloak_realm", "")
-    if keycloak_admin_user:
+    # __import__("ipdb").set_trace()
+    if varenvs_exist():
+        keycloak_realm = os.environ.get("keycloak_realm", "")
         if realm_exists(keycloak_realm):
             kc_users = get_keycloak_users()
             migrate_plone_user_id_to_keycloak_user_id(
