@@ -495,7 +495,7 @@ def realm_exists(realm: str) -> bool:
 
     url = f"{keycloak_url}admin/realms/{realm}"
     headers = {"Authorization": "Bearer " + access_token}
-    response = requests.get(url=url, headers=headers)
+    response = requests.get(url=url, headers=headers, timeout=10)
     return response.status_code == 200
 
 
