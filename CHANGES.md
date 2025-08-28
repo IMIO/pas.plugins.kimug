@@ -1,4 +1,4 @@
-## 1.1.3 (unreleased)
+## 1.1.3 (2025-08-28)
 
 
 - Check if realm exists and environment variables are set before migration
