@@ -51,8 +51,8 @@ def post_install(context):
     _add_plugin(api.portal.get_tool("acl_users"))
 
     set_oidc_settings(context)
-    # __import__("ipdb").set_trace()
     if varenvs_exist():
+        keycloak_realm = os.environ.get("keycloak_realm", "")
         keycloak_realm = os.environ.get("keycloak_realm", "")
         if realm_exists(keycloak_realm):
             kc_users = get_keycloak_users()
