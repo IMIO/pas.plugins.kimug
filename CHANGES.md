@@ -1,7 +1,8 @@
 ## 1.1.5 (unreleased)
 
 
-- Nothing changed yet.
+- Upgrade-step to clean authentic users
+  [remdub]
 
 
 ## 1.1.4 (2025-08-28)
@@ -22,7 +23,7 @@
 
 
 - Add fogrot local roles on migration to Keycloak.
-  [bsuttor & rdubois]
+  [bsuttor & remdub]
 
 ## 1.1.1 (2025-08-26)
 

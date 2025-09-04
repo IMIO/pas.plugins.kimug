@@ -558,3 +558,38 @@ def get_list_local_roles():
                 if ob not in olr:
                     olr.append(ob)
     return olr
+
+
+def remove_authentic_users(context=None) -> None:
+    """Remove all users from the authentic plugin, except those with 'iateleservices' in their username."""
+    acl_users = api.portal.get_tool("acl_users")
+    authentic = acl_users.get("authentic", None)
+    if authentic is None:
+        logger.error("No authentic plugin.")
+        return
+    portal_membership = api.portal.get_tool("portal_membership")
+    users_to_delete = []
+    authentic_users = authentic.getUsers()
+    for user in authentic_users:
+        username = api.user.get(user.getId()).getUserName()
+        if "iateleservices" not in username:
+            users_to_delete.append(user.getId())
+            logger.info(
+                f"{user.getProperty('email')} from authentic users will be deleted."
+            )
+        else:
+            logger.info(f"{username} from authentic users will be kept.")
+    logger.info(f"Total authentic users to delete: {len(users_to_delete)}")
+    logger.info(
+        f"Total authentic users kept: {len(authentic_users) - len(users_to_delete)}"
+    )
+    portal_membership.deleteMembers(users_to_delete, delete_localroles=0)
+    # __import__("pdb").set_trace()
+    # FIXME : remaining users are not deleted, why ?
+    remaining_to_delete = []
+    for user in users_to_delete:
+        if acl_users.getUserById(user):
+            remaining_to_delete.append(user)
+    logger.info(f"Remaining authentic users to delete: {len(remaining_to_delete)}")
+    portal_membership.deleteMembers(remaining_to_delete, delete_localroles=0)
+    transaction.commit()
