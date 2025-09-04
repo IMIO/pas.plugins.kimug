@@ -539,7 +539,7 @@ def get_objects_from_catalog():
             obj = brain.getObject()
             objects.append(obj)
         except Exception as e:
-            # logger.error(f"Error getting object from brain {brain}: {e}")
+            logger.info(f"Error getting object from brain {brain}: {e}")
             continue
     objects.insert(0, api.portal.get())
     return objects
@@ -548,7 +548,7 @@ def get_objects_from_catalog():
 def get_list_local_roles():
     avoided_roles = ["Owner"]
     acl = api.portal.get_tool("acl_users")
-    putils = api.portal.get_tool("plone_utils")
+    # putils = api.portal.get_tool("plone_utils")
     objects = get_objects_from_catalog()
     olr = []
     for ob in objects:
@@ -558,3 +558,30 @@ def get_list_local_roles():
                 if ob not in olr:
                     olr.append(ob)
     return olr
+
+
+def remove_authentic_users(context=None) -> None:
+    """Remove all users from the authentic plugin, except those with 'iateleservices' in their username."""
+    acl_users = api.portal.get_tool("acl_users")
+    authentic = acl_users.get("authentic", None)
+    if authentic is None:
+        logger.error("No authentic plugin.")
+        return
+    portal_membership = api.portal.get_tool("portal_membership")
+    users_to_delete = []
+    authentic_users = authentic.getUsers()
+    for user in authentic_users:
+        username = api.user.get(user.getId()).getUserName()
+        if "iateleservices" not in username:
+            users_to_delete.append(user.getId())
+            logger.info(
+                f"{user.getProperty('email')} from authentic users will be deleted."
+            )
+        else:
+            logger.info(f"{username} from authentic users will be kept.")
+    logger.info(f"Total authentic users to delete: {len(users_to_delete)}")
+    logger.info(
+        f"Total authentic users kept: {len(authentic_users) - len(users_to_delete)}"
+    )
+    portal_membership.deleteMembers(users_to_delete, delete_localroles=0)
+    transaction.commit()
