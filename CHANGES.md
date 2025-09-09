@@ -1,4 +1,4 @@
-## 1.1.5 (unreleased)
+## 1.1.5 (2025-09-09)
 
 
 - Upgrade-step to clean authentic users
