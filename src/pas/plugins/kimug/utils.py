@@ -72,6 +72,7 @@ def get_redirect_uris(current_redirect_uris: tuple[str, ...]) -> tuple[str, ...]
 
 
 def set_oidc_settings(context):
+    # __import__("pdb").set_trace()
     oidc = get_plugin()
     realm = os.environ.get("keycloak_realm", "plone")
     client_id = os.environ.get("keycloak_client_id", "plone")

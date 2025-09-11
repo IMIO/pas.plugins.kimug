@@ -19,6 +19,14 @@
       layer="pas.plugins.kimug.interfaces.IBrowserLayer"
       />
 
+  <browser:page
+      name="set_oidc_settings"
+      for="plone.base.interfaces.IPloneSiteRoot"
+      class=".view.SetOidcSettingsView"
+      permission="cmf.ManagePortal"
+      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
+      />
+
 
   <browser:page
       name="login"
