@@ -27,6 +27,13 @@
       layer="pas.plugins.kimug.interfaces.IBrowserLayer"
       />
 
+  <browser:page
+      name="keycloak_users"
+      for="plone.base.interfaces.IPloneSiteRoot"
+      class=".view.KeycloakUsersView"
+      permission="cmf.ManagePortal"
+      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
+      />
 
   <browser:page
       name="login"

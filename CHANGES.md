@@ -1,8 +1,11 @@
 ## 1.1.6 (unreleased)
 
 
-- View to set OIDC settings
+- Add a view to set OIDC settings
   [remdub]
+
+- Add a view to import Keycloak users to Plone.
+  [bsuttor]
 
 
 ## 1.1.5 (2025-09-09)
@@ -29,7 +32,7 @@
 ## 1.1.2 (2025-08-27)
 
 
-- Add fogrot local roles on migration to Keycloak.
+- Add forgot local roles on migration to Keycloak.
   [bsuttor & remdub]
 
 ## 1.1.1 (2025-08-26)
