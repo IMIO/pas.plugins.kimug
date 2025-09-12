@@ -71,6 +71,17 @@ def get_redirect_uris(current_redirect_uris: tuple[str, ...]) -> tuple[str, ...]
     return tuple(redirect_uris)
 
 
+def get_redirect_uri() -> tuple[str, ...]:
+    """Get the main redirect_uri from environment variables."""
+    website_hostname = os.environ.get("WEBSITE_HOSTNAME")
+    if website_hostname is not None:
+        redirect_uri = f"https://{website_hostname}"
+    else:
+        redirect_uri = "http://localhost:8080/Plone"
+    redirect_uri = f"{redirect_uri}/acl_users/oidc/callback"
+    return (redirect_uri,)
+
+
 def set_oidc_settings(context):
     oidc = get_plugin()
     realm = os.environ.get("keycloak_realm", "plone")
@@ -79,7 +90,7 @@ def set_oidc_settings(context):
     issuer = os.environ.get(
         "keycloak_issuer", f"http://keycloak.traefik.me/realms/{realm}/"
     )
-    oidc.redirect_uris = get_redirect_uris(oidc.redirect_uris)
+    oidc.redirect_uris = get_redirect_uri()
     oidc.client_id = client_id
     oidc.client_secret = client_secret
     oidc.create_groups = True

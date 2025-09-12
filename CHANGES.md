@@ -1,7 +1,8 @@
 ## 1.1.6 (unreleased)
 
 
-- Nothing changed yet.
+- View to set OIDC settings
+  [remdub]
 
 
 ## 1.1.5 (2025-09-09)
