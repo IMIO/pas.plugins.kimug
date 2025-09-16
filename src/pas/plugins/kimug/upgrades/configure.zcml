@@ -11,4 +11,15 @@
       handler="..utils.remove_authentic_users"
       />
 
+  <genericsetup:upgradeSteps
+      profile="pas.plugins.kimug:default"
+      source="1001"
+      destination="1002"
+      >
+    <genericsetup:upgradeDepends
+        title="Add Kimug controlpanel"
+        import_steps="controlpanel"
+        />
+  </genericsetup:upgradeSteps>
+
 </configure>

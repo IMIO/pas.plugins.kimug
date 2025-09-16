@@ -2,6 +2,7 @@ from Acquisition import aq_base
 from collections import defaultdict
 from plone import api
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+from urllib.parse import urlparse
 from zope.annotation.interfaces import IAnnotations
 
 import ast
@@ -118,6 +119,42 @@ def get_admin_access_token(keycloak_url, username, password):
     if response.get("access_token", None) is None:
         logger.error(f"Error getting access token: {response}")
         # raise Exception("Could not get access token from Keycloak" "")
+        return None
+    access_token = response["access_token"]
+    return access_token
+
+
+def _get_env_default(value, env_var, default=None):
+    """Return value if not None, otherwise return env var or default"""
+    return value if value is not None else os.getenv(env_var, default)
+
+
+def get_client_access_token(
+    keycloak_url: str = None,
+    realm: str = None,
+    client_id: str = None,
+    client_secret: str = None,
+) -> str | None:
+    """Get an access token using client_credentials."""
+    keycloak_url = _get_env_default(
+        keycloak_url, "keycloak_url", "http://keycloak.traefik.me/"
+    )
+    client_id = _get_env_default(client_id, "keycloak_client_id", "plone")
+    client_secret = _get_env_default(
+        client_secret, "keycloak_client_secret", "12345678910"
+    )
+    realm = _get_env_default(realm, "keycloak_realm", "plone")
+
+    url = f"{keycloak_url}realms/{realm}/protocol/openid-connect/token"
+    payload = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "grant_type": "client_credentials",
+    }
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    response = requests.post(url=url, headers=headers, data=payload).json()
+    if response.get("access_token", None) is None:
+        logger.error(f"Error getting access token: {response}")
         return None
     access_token = response["access_token"]
     return access_token
@@ -520,6 +557,33 @@ def realm_exists(realm: str) -> bool:
     headers = {"Authorization": "Bearer " + access_token}
     response = requests.get(url=url, headers=headers, timeout=10)
     return response.status_code == 200
+
+
+def check_keycloak_settings() -> bool:
+    """Check if we can get an access token with the OIDC settings."""
+    oidc = get_plugin()
+    if not oidc:
+        logger.error("OIDC plugin not found")
+        return False
+    issuer = oidc.issuer
+    if not issuer:
+        logger.error("OIDC issuer not set")
+        return False
+    realm = [item for item in issuer.split("/") if item][-1]
+    issuer_parsed = urlparse(issuer)
+    if not issuer_parsed.scheme or not issuer_parsed.netloc:
+        logger.error("OIDC issuer is not a valid URL")
+        return False
+    keycloak_url = f"{issuer_parsed.scheme}://{issuer_parsed.netloc}/"
+    client_id = oidc.client_id
+    client_secret = oidc.client_secret
+    if not client_id or not client_secret:
+        logger.error("OIDC client_id or client_secret not set")
+        return False
+    if get_client_access_token(keycloak_url, realm, client_id, client_secret) is None:
+        logger.error("Could not get access token from Keycloak with OIDC settings")
+        return False
+    return True
 
 
 def varenvs_exist() -> bool:
