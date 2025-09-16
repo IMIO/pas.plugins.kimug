@@ -26,4 +26,8 @@ class SetOidcSettingsView(BrowserView):
         set_oidc_settings(self.context)
         api.portal.show_message("OIDC settings configured successfully", self.request)
         logger.info("OIDC settings configured successfully")
-        self.request.response.redirect(self.context.absolute_url())
+        referer = self.request.get("HTTP_REFERER")
+        if referer:
+            self.request.response.redirect(referer)
+        else:
+            self.request.response.redirect(self.context.absolute_url())

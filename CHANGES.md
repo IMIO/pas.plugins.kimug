@@ -1,14 +1,16 @@
 ## 1.1.6 (unreleased)
 
+- Add controlpanel
+  [remdub]
 
-- View to set OIDC settings
+- Add view to set OIDC settings
   [remdub]
 
 
 ## 1.1.5 (2025-09-09)
 
 
-- Upgrade-step to clean authentic users
+- Add upgrade-step to clean authentic users
   [remdub]
 
 
@@ -29,7 +31,7 @@
 ## 1.1.2 (2025-08-27)
 
 
-- Add fogrot local roles on migration to Keycloak.
+- Add forgot local roles on migration to Keycloak.
   [bsuttor & remdub]
 
 ## 1.1.1 (2025-08-26)
