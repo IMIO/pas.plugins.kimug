@@ -1,4 +1,4 @@
-## 1.1.6 (unreleased)
+## 1.2.0 (2025-09-16)
 
 - Add controlpanel
   [remdub]
