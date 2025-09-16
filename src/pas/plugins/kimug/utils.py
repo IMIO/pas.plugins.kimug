@@ -155,11 +155,15 @@ def get_client_access_token(
     try:
         resp = requests.post(url=url, headers=headers, data=payload)
         if resp.status_code != 200:
-            logger.error(f"Error getting access token: HTTP {resp.status_code} - {resp.text}")
+            logger.error(
+                f"Error getting access token: HTTP {resp.status_code} - {resp.text}"
+            )
             return None
         content_type = resp.headers.get("Content-Type", "")
         if not content_type.startswith("application/json"):
-            logger.error(f"Error getting access token: Unexpected content type {content_type}")
+            logger.error(
+                f"Error getting access token: Unexpected content type {content_type}"
+            )
             return None
         response = resp.json()
     except Exception as e:
