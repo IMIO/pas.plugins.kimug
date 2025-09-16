@@ -152,7 +152,19 @@ def get_client_access_token(
         "grant_type": "client_credentials",
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    response = requests.post(url=url, headers=headers, data=payload).json()
+    try:
+        resp = requests.post(url=url, headers=headers, data=payload)
+        if resp.status_code != 200:
+            logger.error(f"Error getting access token: HTTP {resp.status_code} - {resp.text}")
+            return None
+        content_type = resp.headers.get("Content-Type", "")
+        if not content_type.startswith("application/json"):
+            logger.error(f"Error getting access token: Unexpected content type {content_type}")
+            return None
+        response = resp.json()
+    except Exception as e:
+        logger.error(f"Exception getting access token: {e}")
+        return None
     if response.get("access_token", None) is None:
         logger.error(f"Error getting access token: {response}")
         return None
