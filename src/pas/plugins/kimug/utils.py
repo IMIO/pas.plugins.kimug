@@ -153,7 +153,7 @@ def get_client_access_token(
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     try:
-        resp = requests.post(url=url, headers=headers, data=payload)
+        resp = requests.post(url=url, headers=headers, data=payload, timeout=10)
         if resp.status_code != 200:
             logger.error(
                 f"Error getting access token: HTTP {resp.status_code} - {resp.text}"
@@ -648,72 +648,6 @@ def get_list_local_roles():
                 if ob not in olr:
                     olr.append(ob)
     return olr
-
-
-def remove_authentic_users(context=None) -> None:
-    """Remove all users from the authentic plugin, except those with 'iateleservices' in their username."""
-    acl_users = api.portal.get_tool("acl_users")
-    authentic = acl_users.get("authentic", None)
-    if authentic is None:
-        logger.error("No authentic plugin.")
-        return
-    portal_membership = api.portal.get_tool("portal_membership")
-    users_to_delete = []
-    authentic_users = authentic.getUsers()
-    for user in authentic_users:
-        username = api.user.get(user.getId()).getUserName()
-        if "iateleservices" not in username:
-            users_to_delete.append(user.getId())
-            logger.info(
-                f"{user.getProperty('email')} from authentic users will be deleted."
-            )
-        else:
-            logger.info(f"{username} from authentic users will be kept.")
-    logger.info(f"Total authentic users to delete: {len(users_to_delete)}")
-    logger.info(
-        f"Total authentic users kept: {len(authentic_users) - len(users_to_delete)}"
-    )
-    portal_membership.deleteMembers(users_to_delete, delete_localroles=0)
-    transaction.commit()
-
-
-def get_client_access_token():
-    """Get an access token using client credentials flow."""
-    realm = os.environ.get("keycloak_realm", "plone")
-    keycloak_url = os.environ.get("keycloak_url")
-    client_id = os.environ.get("keycloak_client_id")
-    client_secret = os.environ.get("keycloak_client_secret")
-
-    if not all([keycloak_url, client_id, client_secret]):
-        logger.error(
-            "Missing required environment variables: keycloak_url, keycloak_client_id, or keycloak_client_secret"
-        )
-        return None
-
-    url = f"{keycloak_url}realms/{realm}/protocol/openid-connect/token"
-    payload = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "grant_type": "client_credentials",
-    }
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
-
-    try:
-        response = requests.post(url=url, headers=headers, data=payload, timeout=10)
-        response.raise_for_status()
-        token_data = response.json()
-
-        if "access_token" not in token_data:
-            logger.error(f"No access token in response: {token_data}")
-            return None
-
-        return token_data["access_token"]
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error getting client access token: {e}")
-        return None
-    except ValueError as e:
-        logger.error(f"Error parsing token response: {e}")
-        return None
 
 
 def get_keycloak_users_from_oidc():
