@@ -10,14 +10,7 @@ from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 import logging
 
 
-# from zope.interface import Interface
-# from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
-
-
-logger = logging.getLogger("pas.plugins.kimug")
-
-# class IMyView(Interface):
-#     """Marker Interface for IMyView"""
+logger = logging.getLogger("pas.plugins.kimug.view")
 
 
 class MigrationView(BrowserView):
@@ -36,7 +29,11 @@ class SetOidcSettingsView(BrowserView):
         set_oidc_settings(self.context)
         api.portal.show_message("OIDC settings configured successfully", self.request)
         logger.info("OIDC settings configured successfully")
-        self.request.response.redirect(self.context.absolute_url())
+        referer = self.request.get("HTTP_REFERER")
+        if referer:
+            self.request.response.redirect(referer)
+        else:
+            self.request.response.redirect(self.context.absolute_url())
 
 
 class KeycloakUsersView(BrowserView):

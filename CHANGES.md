@@ -1,5 +1,7 @@
 ## 1.1.6 (unreleased)
 
+- Add controlpanel
+  [remdub]
 
 - Add a view to set OIDC settings
   [remdub]
@@ -11,7 +13,7 @@
 ## 1.1.5 (2025-09-09)
 
 
-- Upgrade-step to clean authentic users
+- Add upgrade-step to clean authentic users
   [remdub]
 
 

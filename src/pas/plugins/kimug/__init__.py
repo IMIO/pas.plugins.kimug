@@ -1,9 +1,6 @@
 """Init and utils."""
 
 from AccessControl.Permissions import manage_users
-from pas.plugins.kimug.plugin import KimugPlugin
-from pas.plugins.kimug.plugin import manage_addKimugPlugin
-from pas.plugins.kimug.plugin import manage_addKimugPluginForm
 from Products.PluggableAuthService import registerMultiPlugin
 from zope.i18nmessageid import MessageFactory
 
@@ -12,7 +9,7 @@ import os
 
 
 PACKAGE_NAME = "pas.plugins.kimug"
-
+PLUGIN_ID = "oidc"
 _ = MessageFactory(PACKAGE_NAME)
 
 logger = logging.getLogger(PACKAGE_NAME)
@@ -28,11 +25,13 @@ def initialize(context):
     Here, we call the Archetypes machinery to register our content types
     with Zope and the CMF.
     """
+    from pas.plugins.kimug import plugin
+
     registerMultiPlugin("Kimug Plugin")
     context.registerClass(
-        KimugPlugin,
+        plugin.KimugPlugin,
         permission=manage_users,
         icon=os.path.join(tpl_dir, "logo.svg"),
-        constructors=(manage_addKimugPluginForm, manage_addKimugPlugin),
+        constructors=(plugin.manage_addKimugPluginForm, plugin.manage_addKimugPlugin),
         visibility=None,
     )

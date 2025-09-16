@@ -16,7 +16,7 @@ class TestSetupInstall:
 
     def test_latest_version(self, profile_last_version):
         """Test latest version of default profile."""
-        assert profile_last_version(f"{PACKAGE_NAME}:default") == "1001"
+        assert profile_last_version(f"{PACKAGE_NAME}:default") == "1002"
 
     def test_acl_users_plugin(self, portal):
         """Test active plugin of acl_users."""
