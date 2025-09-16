@@ -1,0 +1,19 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      metal:use-macro="context/main_template/macros/master"
+      i18n:domain="pas.plugins.kimug"
+>
+  <body>
+    <metal:content-core fill-slot="content-core">
+      <metal:block define-macro="content-core">
+
+        <!-- <h2 i18n:translate="">Sample View</h2> -->
+        <!--<div tal:replace="view/my_custom_view_method" />-->
+        <!--<div tal:replace="context/my_custom_field" />-->
+
+      </metal:block>
+    </metal:content-core>
+  </body>
+</html>

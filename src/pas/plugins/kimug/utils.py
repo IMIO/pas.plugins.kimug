@@ -153,7 +153,7 @@ def get_client_access_token(
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     try:
-        resp = requests.post(url=url, headers=headers, data=payload)
+        resp = requests.post(url=url, headers=headers, data=payload, timeout=10)
         if resp.status_code != 200:
             logger.error(
                 f"Error getting access token: HTTP {resp.status_code} - {resp.text}"
@@ -186,7 +186,6 @@ def get_plugin():
 def get_keycloak_users():
     """Get all keycloak users."""
     realm = os.environ.get("keycloak_realm", None)
-    # realms = os.environ.get("keycloak_realms", None)
     keycloak_url = os.environ.get("keycloak_url")
     keycloak_admin_user = os.environ.get("keycloak_admin_user")
     keycloak_admin_password = os.environ.get("keycloak_admin_password")
@@ -196,16 +195,17 @@ def get_keycloak_users():
     if not access_token:
         logger.error("Could not get access token from Keycloak")
         return []
-    # acl_users = api.portal.get_tool("acl_users")
-    # oidc = acl_users.oidc
-    # realm = oidc.issuer.split("/")[-1]
     kc_users = []
-    # for realm in [r.strip() for r in realms.split(",")]:
     url = f"{keycloak_url}admin/realms/{realm}/users?max=100000"
     headers = {"Authorization": "Bearer " + access_token}
     response = requests.get(url=url, headers=headers)
     if response.status_code == 200 and response.json():
         kc_users.extend(response.json())
+    else:
+        logger.error(
+            f"Error getting users from Keycloak realm {realm}: {response.json()}"
+        )
+        raise Exception(f"Could not get users from Keycloak realm {realm}")
 
     kc_users.extend(get_imio_users())
     logger.info(f"Users from Keycloak: {len(kc_users)}")
@@ -639,7 +639,6 @@ def get_objects_from_catalog():
 def get_list_local_roles():
     avoided_roles = ["Owner"]
     acl = api.portal.get_tool("acl_users")
-    # putils = api.portal.get_tool("plone_utils")
     objects = get_objects_from_catalog()
     olr = []
     for ob in objects:
@@ -649,6 +648,120 @@ def get_list_local_roles():
                 if ob not in olr:
                     olr.append(ob)
     return olr
+
+
+def get_keycloak_users_from_oidc():
+    """Get Keycloak users using client credentials authentication.
+
+    Returns a list of dictionaries containing username and email for each user.
+    Uses keycloak_client_id and keycloak_client_secret environment variables.
+    """
+    realm = os.environ.get("keycloak_realm", "plone")
+    keycloak_url = os.environ.get("keycloak_url")
+
+    if not keycloak_url:
+        logger.error("Missing keycloak_url environment variable")
+        return []
+
+    # Get access token using client credentials
+    access_token = get_client_access_token()
+    if not access_token:
+        logger.error("Could not get client access token from Keycloak")
+        return []
+
+    # Fetch users from Keycloak
+    # Get all users from the "iA.Smartweb" group in the realm
+    oidc = get_plugin()
+    group_names = oidc.allowed_groups
+    # group_name = "iA.Smartweb"
+    group_url = f"{keycloak_url}admin/realms/{realm}/groups"
+    group_response = requests.get(
+        url=group_url, headers={"Authorization": f"Bearer {access_token}"}, timeout=30
+    )
+    group_response.raise_for_status()
+    groups = group_response.json()
+    group_ids = []
+    for group in groups:
+        if group.get("name") in group_names:
+            group_ids.append(group.get("id"))
+    if not group_ids:
+        logger.error(f"Groups '{group_names}' not found in Keycloak realm '{realm}'")
+        return []
+
+    users = []
+    headers = {"Authorization": f"Bearer {access_token}"}
+    for group_id in group_ids:
+        url = f"{keycloak_url}admin/realms/{realm}/groups/{group_id}/members?max=100000"
+        try:
+            response = requests.get(url=url, headers=headers, timeout=30)
+            response.raise_for_status()
+            users_data = response.json()
+
+            # Extract username and email from each user
+            for user in users_data:
+                user_info = {
+                    "username": user.get("username", ""),
+                    "email": user.get("email", ""),
+                    "keycloak_id": user.get("id", ""),
+                    "firstName": user.get("firstName", ""),
+                    "lastName": user.get("lastName", ""),
+                }
+                # Only include users that have both username and email
+                if user_info["username"] and user_info["email"]:
+                    users.append(user_info)
+
+            logger.info(f"Retrieved {len(users)} users from Keycloak realm '{realm}'")
+            return users
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error fetching users from Keycloak: {e}")
+            return []
+        except ValueError as e:
+            logger.error(f"Error parsing users response: {e}")
+            return []
+
+
+def add_keycloak_users_to_plone(users):
+    """Add Keycloak users to Plone if they do not already exist."""
+    oidc = get_plugin()
+    users_added = 0
+
+    for user in users:
+        username = user.get("username")
+        email = user.get("email")
+        keycloak_id = user.get("keycloak_id")
+
+        if not username or not email or not keycloak_id:
+            logger.warning(f"Skipping user with missing username or email: {user}")
+            continue
+
+        existing_user = api.user.get(username=username)
+        if existing_user:
+            logger.info(f"User '{username}' already exists in Plone. Skipping.")
+            continue
+
+        try:
+            new_user = oidc._create_user(keycloak_id)
+            if new_user is None:
+                logger.error(f"Failed to create user '{username}' in OIDC plugin.")
+                continue
+
+            userinfo = {
+                "username": username,
+                "email": email,
+                "given_name": user.get("firstName", ""),
+                "family_name": user.get("lastName", ""),
+            }
+            oidc._update_user(new_user, userinfo, first_login=True)
+            users_added += 1
+            logger.info(f"Added new user '{username}' to Plone.")
+
+        except Exception as e:
+            logger.error(f"Error adding user '{username}': {e}")
+            continue
+
+    logger.info(f"Total new users added to Plone: {users_added}")
+    return users_added
 
 
 def remove_authentic_users(context=None) -> None:

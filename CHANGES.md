@@ -3,8 +3,11 @@
 - Add controlpanel
   [remdub]
 
-- Add view to set OIDC settings
+- Add a view to set OIDC settings
   [remdub]
+
+- Add a view to import Keycloak users to Plone.
+  [bsuttor]
 
 
 ## 1.1.5 (2025-09-09)
