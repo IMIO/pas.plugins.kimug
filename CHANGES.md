@@ -1,7 +1,8 @@
 ## 1.2.1 (unreleased)
 
 
-- Nothing changed yet.
+- Set OIDC settings from environment variables on instance boot
+  [remdub, bsuttor]
 
 
 ## 1.2.0 (2025-09-16)
