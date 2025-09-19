@@ -1,6 +1,9 @@
 ## 1.2.1 (unreleased)
 
 
+- In controlpanel status, check if the redirect_uris set in Keycloak match the ones set in the OIDC plugin.
+  [remdub]
+
 - Set OIDC settings from environment variables on instance boot
   [remdub, bsuttor]
 

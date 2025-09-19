@@ -584,8 +584,39 @@ def realm_exists(realm: str) -> bool:
     return response.status_code == 200
 
 
+def _check_redirect_uris(client_id: str, access_token: str) -> bool:
+    """Check if the redirect_uris set in Keycloak match the ones set in the OIDC plugin."""
+    oidc = get_plugin()
+    keycloak_url = _get_env_default(None, "keycloak_url", "http://keycloak.traefik.me/")
+    realm = _get_env_default(None, "keycloak_realm", "plone")
+    url = f"{keycloak_url}admin/realms/{realm}/clients?clientId={client_id}"
+    headers = {"Authorization": "Bearer " + access_token}
+    response = requests.get(url=url, headers=headers, timeout=10)
+    if response.status_code != 200 or not response.json():
+        logger.error(
+            f"Error getting client from Keycloak: HTTP {response.status_code} - {response.text}"
+        )
+        return False
+    client = response.json()[0]
+    redirect_uris = client.get("redirectUris", [])
+    if not redirect_uris:
+        logger.error("No redirect_uris found for client")
+        return False
+    for redirect_uri in redirect_uris:
+        if redirect_uri.endswith("/*"):
+            redirect_uri = redirect_uri[:-2]
+        for oidc_redirect_uri in oidc.redirect_uris:
+            if oidc_redirect_uri.startswith(redirect_uri):
+                logger.info("Redirect URI in OIDC settings found in Keycloak")
+                return True
+    return False
+
+
 def check_keycloak_settings() -> bool:
-    """Check if we can get an access token with the OIDC settings."""
+    """Check if we can get an access token with the OIDC settings.
+    And if the redirect_uris set in Keycloak match the ones set in the OIDC plugin.
+    """
+
     oidc = get_plugin()
     if not oidc:
         logger.error("OIDC plugin not found")
@@ -605,8 +636,14 @@ def check_keycloak_settings() -> bool:
     if not client_id or not client_secret:
         logger.error("OIDC client_id or client_secret not set")
         return False
-    if get_client_access_token(keycloak_url, realm, client_id, client_secret) is None:
+    access_token = get_client_access_token(
+        keycloak_url, realm, client_id, client_secret
+    )
+    if access_token is None:
         logger.error("Could not get access token from Keycloak with OIDC settings")
+        return False
+    if _check_redirect_uris(client_id, access_token) is False:
+        logger.error("Redirect URIs in Keycloak do not match OIDC settings")
         return False
     return True
 
