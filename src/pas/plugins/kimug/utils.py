@@ -4,6 +4,7 @@ from plone import api
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 from urllib.parse import urlparse
 from zope.annotation.interfaces import IAnnotations
+from zope.component.hooks import setSite
 
 import ast
 import logging
@@ -84,6 +85,13 @@ def get_redirect_uri() -> tuple[str, ...]:
 
 
 def set_oidc_settings(context):
+    """Set the needed OIDC settings so that Keycloak can be used as authentication source."""
+    try:
+        api.portal.get()
+        logger.info("Site found with api.portal.get()")
+    except api.exc.CannotGetPortalError:
+        logger.info("Site not found with api.portal.get(), setting it with setSite()")
+        setSite(context.database.open().root()["Application"]["Plone"])
     oidc = get_plugin()
     realm = os.environ.get("keycloak_realm", "plone")
     client_id = os.environ.get("keycloak_client_id", "plone")
@@ -103,6 +111,7 @@ def set_oidc_settings(context):
     api.portal.set_registry_record("plone.external_logout_url", "acl_users/oidc/logout")
 
     transaction.commit()
+    logger.info("OIDC settings set with set_oidc_settings()")
     # return site
 
 

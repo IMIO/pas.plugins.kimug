@@ -25,6 +25,7 @@
   <include package=".browser" />
   <include package=".controlpanel" />
   <include package=".indexers" />
+  <include package=".subscribers" />
   <include package=".vocabularies" />
 
 

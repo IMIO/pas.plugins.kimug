@@ -1,0 +1,10 @@
+<configure xmlns="http://namespaces.zope.org/zope">
+
+  <!-- Subscribers -->
+
+  <subscriber
+      for="zope.processlifetime.IDatabaseOpenedWithRoot"
+      handler="..utils.set_oidc_settings"
+      />
+
+</configure>
