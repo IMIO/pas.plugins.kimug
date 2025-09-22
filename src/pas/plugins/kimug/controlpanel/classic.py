@@ -97,12 +97,12 @@ class KimugSettingsControlPanel(controlpanel.ControlPanelFormWrapper):
             return '<div class="alert alert-danger" role="alert">{}</div>'.format(
                 _(
                     "There is a problem with the Keycloak settings. "
-                    "Please check the Issuer URL, client ID and client secret."
+                    "Please check the Issuer URL, client ID, client secret and redirect_uri"
                 )
             )
         else:
             return '<div class="alert alert-success" role="alert">{}</div>'.format(
                 _(
-                    "Keycloak settings (issuer url, client id and client secret) are correct."
+                    "Keycloak settings (issuer url, client id, client secret and redirect_uri) are correct."
                 )
             )
