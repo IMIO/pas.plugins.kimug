@@ -59,7 +59,6 @@ class KeycloakUsersView(BrowserView):
 
 
 class KimugLoginView(LoginView):
-
     def initialize_session(self, plugin: plugins.OIDCPlugin, request) -> Session:
         """Initialize a Session."""
         use_session_data_manager: bool = plugin.getProperty("use_session_data_manager")
