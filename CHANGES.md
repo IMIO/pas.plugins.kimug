@@ -1,3 +1,9 @@
+## 1.3.1 (unreleased)
+
+
+- Nothing changed yet.
+
+
 ## 1.3.0 (2025-09-25)
 
 - Skip OIDC settings configuration when Plone site or OIDC plugin is unavailable
