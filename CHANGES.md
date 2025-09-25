@@ -1,4 +1,4 @@
-## 1.2.1 (unreleased)
+## 1.3.0 (2025-09-25)
 
 - Skip OIDC settings configuration when Plone site or OIDC plugin is unavailable
   [remdub]
