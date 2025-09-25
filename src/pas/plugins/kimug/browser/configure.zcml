@@ -38,7 +38,7 @@
   <browser:page
       name="login"
       for="pas.plugins.kimug.interfaces.IKimugPlugin"
-      class="pas.plugins.oidc.browser.view.LoginView"
+      class=".view.KimugLoginView"
       permission="zope2.View"
       layer="pas.plugins.kimug.interfaces.IBrowserLayer"
       />
@@ -62,7 +62,7 @@
   <browser:page
       name="callback"
       for="pas.plugins.kimug.interfaces.IKimugPlugin"
-      class="pas.plugins.oidc.browser.view.CallbackView"
+      class=".view.CallbackView"
       permission="zope2.View"
       layer="pas.plugins.kimug.interfaces.IBrowserLayer"
       />

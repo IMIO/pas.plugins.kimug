@@ -1,5 +1,7 @@
 ## 1.2.1 (unreleased)
 
+- Set "came_from" session variable from HTTP_REFERER instead of came_from request.
+  [bsuttor]
 
 - In controlpanel status, check if the redirect_uris set in Keycloak match the ones set in the OIDC plugin.
   [remdub]
