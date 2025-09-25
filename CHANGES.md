@@ -1,5 +1,8 @@
 ## 1.2.1 (unreleased)
 
+- Skip OIDC settings configuration when Plone site or OIDC plugin is unavailable
+  [remdub]
+
 - Set "came_from" session variable from HTTP_REFERER instead of came_from request.
   [bsuttor]
 

@@ -91,28 +91,38 @@ def set_oidc_settings(context):
         logger.info("Site found with api.portal.get()")
     except api.exc.CannotGetPortalError:
         logger.info("Site not found with api.portal.get(), setting it with setSite()")
-        setSite(context.database.open().root()["Application"]["Plone"])
-    oidc = get_plugin()
-    realm = os.environ.get("keycloak_realm", "plone")
-    client_id = os.environ.get("keycloak_client_id", "plone")
-    client_secret = os.environ.get("keycloak_client_secret", "12345678910")
-    issuer = os.environ.get(
-        "keycloak_issuer", f"http://keycloak.traefik.me/realms/{realm}/"
-    )
-    oidc.redirect_uris = get_redirect_uri()
-    oidc.client_id = client_id
-    oidc.client_secret = client_secret
-    oidc.create_groups = True
-    oidc.issuer = issuer
-    oidc.scope = ("openid", "profile", "email")
-    oidc.userinfo_endpoint_method = "GET"
+        try:
+            site = context.database.open().root()["Application"]["Plone"]
+        except KeyError:
+            logger.warning("Could not find Plone site, not setting OIDC settings")
+            return
+        setSite(site)
+    if oidc := get_plugin():
+        realm = os.environ.get("keycloak_realm", "plone")
+        client_id = os.environ.get("keycloak_client_id", "plone")
+        client_secret = os.environ.get("keycloak_client_secret", "12345678910")
+        issuer = os.environ.get(
+            "keycloak_issuer", f"http://keycloak.traefik.me/realms/{realm}/"
+        )
+        oidc.redirect_uris = get_redirect_uri()
+        oidc.client_id = client_id
+        oidc.client_secret = client_secret
+        oidc.create_groups = True
+        oidc.issuer = issuer
+        oidc.scope = ("openid", "profile", "email")
+        oidc.userinfo_endpoint_method = "GET"
 
-    api.portal.set_registry_record("plone.external_login_url", "acl_users/oidc/login")
-    api.portal.set_registry_record("plone.external_logout_url", "acl_users/oidc/logout")
+        api.portal.set_registry_record(
+            "plone.external_login_url", "acl_users/oidc/login"
+        )
+        api.portal.set_registry_record(
+            "plone.external_logout_url", "acl_users/oidc/logout"
+        )
 
-    transaction.commit()
-    logger.info("OIDC settings set with set_oidc_settings()")
-    # return site
+        transaction.commit()
+        logger.info("OIDC settings set with set_oidc_settings()")
+    else:
+        logger.warning("Could not find OIDC plugin, not setting OIDC settings")
 
 
 def get_admin_access_token(keycloak_url, username, password):
@@ -188,7 +198,11 @@ def get_client_access_token(
 def get_plugin():
     """Get the OIDC plugin."""
     pas = api.portal.get_tool("acl_users")
-    oidc = pas.oidc
+    try:
+        oidc = pas.oidc
+    except AttributeError:
+        logger.warning("Could not find OIDC plugin with get_plugin().")
+        return None
     return oidc
 
 
