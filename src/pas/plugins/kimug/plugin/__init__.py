@@ -42,11 +42,11 @@ class KimugPlugin(OIDCPlugin):
     @security.private
     def getRolesForPrincipal(self, user, request=None):
         """Fulfill RolesPlugin requirements"""
-        app_id = os.environ.get("application_id", "smartweb")
+        # app_id = os.environ.get("application_id", "smartweb")
         roles = ["Member"]
-        if app_id in user.getGroups():
-            roles.append("Manager")
-            return tuple(roles)
+        # if app_id in user.getGroups():
+        #     roles.append("Manager")
+        #     return tuple(roles)
         return tuple(roles)
 
     @security.private

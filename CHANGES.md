@@ -1,7 +1,8 @@
 ## 1.3.1 (unreleased)
 
 
-- Nothing changed yet.
+- Do not gave administrator role for users in group iA.Smartweb.
+  [bsuttor]
 
 
 ## 1.3.0 (2025-09-25)
