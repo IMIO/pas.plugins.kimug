@@ -1,4 +1,4 @@
-## 1.3.1 (unreleased)
+## 1.3.1 (2025-09-30)
 
 
 - Do not gave administrator role for users in group iA.Smartweb.
