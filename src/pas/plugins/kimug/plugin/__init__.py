@@ -7,7 +7,6 @@ from Products.PluggableAuthService.interfaces import plugins as pas_interfaces
 from zope.interface import implementer
 
 import jwt
-import os
 
 
 # from jwt.algorithms import RSAAlgorithm
