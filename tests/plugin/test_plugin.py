@@ -71,8 +71,14 @@ class TestPlugin:
         role = plugin.getRolesForPrincipal(pas.getUserById("kimug"))
         roles = plugin.getRolesForPrincipal(pas.getUserById("kimug_with_groups"))
         assert role == ("Member",)
-        assert roles == ("Member", "Manager")
+        # assert roles == ("Member", "Manager")
+        assert roles == (
+            "Member",
+        )  # https://github.com/IMIO/pas.plugins.kimug/commit/966d16cabd44379e12cfd580bff80e58a72f98bb
         os.environ["application_id"] = "delib"
         roles = plugin.getRolesForPrincipal(pas.getUserById("kimug"))
-        assert roles == ("Member", "Manager")
+        # assert roles == ("Member", "Manager")
+        assert roles == (
+            "Member",
+        )  # https://github.com/IMIO/pas.plugins.kimug/commit/966d16cabd44379e12cfd580bff80e58a72f98bb
         del os.environ["application_id"]

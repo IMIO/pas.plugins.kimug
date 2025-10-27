@@ -1,7 +1,9 @@
 ## 1.3.2 (unreleased)
 
 
-- Nothing changed yet.
+- Remove deprecated methods related to redirect uris
+  We are not using those methods anymore since 1.3.0
+  [remdub]
 
 
 ## 1.3.1 (2025-09-30)
