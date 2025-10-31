@@ -55,6 +55,16 @@ def set_oidc_settings(context):
         oidc.scope = ("openid", "profile", "email")
         oidc.userinfo_endpoint_method = "GET"
 
+        oidc.add_user_url = os.environ.get(
+            "keycloak_add_user_url", "http://localhost/wca/"
+        )
+        oidc.personal_information_url = os.environ.get(
+            "keycloak_personal_information_url", "http://localhost/wca/profile/"
+        )
+        oidc.change_password_url = os.environ.get(
+            "keycloak_change_password_url", "http://localhost/wca/change_password/"
+        )
+
         api.portal.set_registry_record(
             "plone.external_login_url", "acl_users/oidc/login"
         )

@@ -42,6 +42,7 @@ var/
 /venv/
 .installed.txt
 .lock
+.mxdev_cache
 
 ##
 # Add extra configuration options in .meta.toml:

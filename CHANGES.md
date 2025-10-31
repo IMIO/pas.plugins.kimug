@@ -1,5 +1,12 @@
-## 1.3.2 (unreleased)
+## 1.4.0 (unreleased)
 
+- Upgrade dev environment to Plone 6.1.3
+  [remdub]
+
+- Override views related to user management
+  We no longer create or modify users in Plone
+  This is now handled by Keycloak
+  [remdub]
 
 - Remove deprecated methods related to redirect uris
   We are not using those methods anymore since 1.3.0

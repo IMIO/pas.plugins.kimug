@@ -145,3 +145,24 @@ class IKimugSettings(Interface):
         values=["GET", "POST"],
         default="POST",
     )
+
+    add_user_url = schema.TextLine(
+        title=_("Add User URL"),
+        description=_("URL to redirect users to create a new account."),
+        required=True,
+        default="http://localhost/wca/",
+    )
+
+    personal_information_url = schema.TextLine(
+        title=_("Personal Information URL"),
+        description=_("URL to redirect users to manage their personal information."),
+        required=True,
+        default="http://localhost/wca/profile/",
+    )
+
+    change_password_url = schema.TextLine(
+        title=_("Change password URL"),
+        description=_("URL to redirect users to change their password."),
+        required=True,
+        default="http://localhost/wca/profile/",
+    )
