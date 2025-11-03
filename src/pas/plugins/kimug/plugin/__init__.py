@@ -38,6 +38,36 @@ class KimugPlugin(OIDCPlugin):
     meta_type = "Kimug Plugin"
     _dont_swallow_my_exceptions = True
 
+    add_user_url: str = ""
+    personal_information_url: str = ""
+    change_password_url: str = ""
+    _properties = list(OIDCPlugin._properties)
+    _properties.append(
+        {
+            "id": "add_user_url",
+            "type": "string",
+            "mode": "w",
+            "label": "Add User URL",
+        }
+    )
+    _properties.append(
+        {
+            "id": "personal_information_url",
+            "type": "string",
+            "mode": "w",
+            "label": "Personal Information URL",
+        }
+    )
+    _properties.append(
+        {
+            "id": "change_password_url",
+            "type": "string",
+            "mode": "w",
+            "label": "Change Password URL",
+        }
+    )
+    _properties = tuple(_properties)
+
     @security.private
     def getRolesForPrincipal(self, user, request=None):
         """Fulfill RolesPlugin requirements"""

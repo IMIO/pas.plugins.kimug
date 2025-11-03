@@ -59,6 +59,9 @@ def keycloak(keycloak_service):
         "client_id": "plone",
         "client_secret": "12345678910",  # nosec B105
         "scope": ("openid", "profile", "email"),
+        "add_user_url": "http://kamoulox.be/add_user",
+        "personal_information_url": "http://kamoulox.be/personal_info",
+        "change_password_url": "http://kamoulox.be/change_password",
     }
 
 

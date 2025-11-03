@@ -75,5 +75,37 @@
       layer="pas.plugins.kimug.interfaces.IBrowserLayer"
       />
 
+  <browser:page
+      name="new-user"
+      for="plone.base.interfaces.INavigationRoot"
+      class=".view.NewUserView"
+      permission="plone.app.controlpanel.UsersAndGroups"
+      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
+      />
+
+  <browser:page
+      name="usergroup-userprefs"
+      for="plone.base.interfaces.IPloneSiteRoot"
+      class="Products.CMFPlone.controlpanel.browser.usergroups_usersoverview.UsersOverviewControlPanel"
+      template="usergroups_usersoverview.pt"
+      permission="plone.app.controlpanel.UsersAndGroups"
+      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
+      />
+
+  <browser:page
+      name="personal-information"
+      for="plone.base.interfaces.INavigationRoot"
+      class=".view.PersonalInformationView"
+      permission="cmf.SetOwnProperties"
+      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
+      />
+
+  <browser:page
+      name="change-password"
+      for="plone.base.interfaces.INavigationRoot"
+      class=".view.ChangePasswordView"
+      permission="cmf.SetOwnProperties"
+      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
+      />
 
 </configure>

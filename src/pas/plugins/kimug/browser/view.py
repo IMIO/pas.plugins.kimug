@@ -138,3 +138,25 @@ class CallbackView(BrowserView):
             self.request.response.redirect(return_url)
         else:
             raise Unauthorized()
+
+
+class NewUserView(BrowserView):
+    def __call__(self):
+        url_to_redirect = self.context["acl_users"]["oidc"].getProperty("add_user_url")
+        self.request.response.redirect(url_to_redirect)
+
+
+class PersonalInformationView(BrowserView):
+    def __call__(self):
+        url_to_redirect = self.context["acl_users"]["oidc"].getProperty(
+            "personal_information_url"
+        )
+        self.request.response.redirect(url_to_redirect)
+
+
+class ChangePasswordView(BrowserView):
+    def __call__(self):
+        url_to_redirect = self.context["acl_users"]["oidc"].getProperty(
+            "change_password_url"
+        )
+        self.request.response.redirect(url_to_redirect)
