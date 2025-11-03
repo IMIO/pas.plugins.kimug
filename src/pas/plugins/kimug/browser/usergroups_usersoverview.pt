@@ -153,7 +153,9 @@
                            "
                         >
                                 ${user/fullname}
-                          <span class="text-muted">(${user/login})</span>
+                          <span class="text-muted"
+                                i18n:translate=""
+                          >(${user/login})</span>
                         </a>
                         <input name="users.id:records"
                                type="hidden"
