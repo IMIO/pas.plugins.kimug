@@ -1,4 +1,4 @@
-## 1.4.0 (unreleased)
+## 1.4.0 (2025-11-04)
 
 - Upgrade dev environment to Plone 6.1.3
   [remdub]
