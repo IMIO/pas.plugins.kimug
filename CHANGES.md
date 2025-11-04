@@ -1,3 +1,9 @@
+## 1.4.1 (unreleased)
+
+
+- Nothing changed yet.
+
+
 ## 1.4.0 (2025-11-04)
 
 - Upgrade dev environment to Plone 6.1.3
