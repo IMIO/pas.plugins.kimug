@@ -98,3 +98,11 @@ class TestUtils:
         utils._set_allowed_groups(oidc)
 
         assert oidc.allowed_groups == ()
+
+        # 4. Another format of allowed groups from environment variable (no brackets)
+
+        os.environ["keycloak_allowed_groups"] = "group1"
+
+        utils._set_allowed_groups(oidc)
+
+        assert oidc.allowed_groups == ("group1",)

@@ -822,7 +822,10 @@ def _set_allowed_groups(oidc) -> None:
         )
         # convert string representation of list to tuple
         oidc.allowed_groups = ast.literal_eval(varenv_allowed_groups)
-        oidc.allowed_groups = tuple(oidc.allowed_groups)
+        if isinstance(oidc.allowed_groups, str):
+            oidc.allowed_groups = (oidc.allowed_groups,)
+        else:
+            oidc.allowed_groups = tuple(oidc.allowed_groups)
         logger.info(f"Set allowed groups to: {varenv_allowed_groups}")
     else:
         logger.info("No environment variable for allowed groups set. Not changing.")
