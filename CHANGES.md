@@ -1,7 +1,8 @@
 ## 1.4.1 (unreleased)
 
 
-- Nothing changed yet.
+- WEB-4331 : Set Allowed Groups with environment variable
+  [remdub]
 
 
 ## 1.4.0 (2025-11-04)

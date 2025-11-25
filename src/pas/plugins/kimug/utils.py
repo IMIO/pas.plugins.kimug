@@ -72,6 +72,8 @@ def set_oidc_settings(context):
             "plone.external_logout_url", "acl_users/oidc/logout"
         )
 
+        _set_allowed_groups(oidc)
+
         transaction.commit()
         logger.info("OIDC settings set with set_oidc_settings()")
     else:
@@ -802,3 +804,22 @@ def remove_authentic_users(context=None) -> None:
     )
     portal_membership.deleteMembers(users_to_delete, delete_localroles=0)
     transaction.commit()
+
+
+def _set_allowed_groups(oidc) -> None:
+    """Set allowed groups from environment variable."""
+    varenv_allowed_groups = os.environ.get("keycloak_allowed_groups", None)
+
+    # varenv set by puppet is a string representation of a list, e.g. "[group1, group2]"
+    # we need to convert it to a tuple
+    if varenv_allowed_groups is not None:
+        if varenv_allowed_groups.startswith("[") and varenv_allowed_groups.endswith(
+            "]"
+        ):
+            varenv_allowed_groups = [
+                group.strip() for group in varenv_allowed_groups[1:-1].split(",")
+            ]
+            oidc.allowed_groups = tuple(varenv_allowed_groups)
+        logger.info(f"Set allowed groups to: {varenv_allowed_groups}")
+    else:
+        logger.info("No environment variable for allowed groups set. Not changing.")
