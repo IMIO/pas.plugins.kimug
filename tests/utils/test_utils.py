@@ -2,6 +2,8 @@ from pas.plugins.kimug import utils
 from plone import api
 from zope.annotation.interfaces import IAnnotations
 
+import os
+
 
 class TestUtils:
     def test_toggle_authentication_plugins(self, portal):
@@ -66,3 +68,33 @@ class TestUtils:
         )
         # 3.1 All authentication plugins should still be enabled.
         assert all_plugins.get("active") == initially_enabled_plugins
+
+    def test_set_allowed_groups(self, portal):
+        """Test set_allowed_groups method."""
+
+        oidc = utils.get_plugin()
+
+        # 1. No environment variable set: allowed groups should not change
+        current_allowed_groups = oidc.allowed_groups
+
+        os.environ.pop("keycloak_allowed_groups", None)
+
+        utils._set_allowed_groups(oidc)
+
+        assert oidc.allowed_groups == current_allowed_groups
+
+        # 2. Typical scenario: set allowed groups from environment variable
+
+        os.environ["keycloak_allowed_groups"] = "[group1, group2, group3]"
+
+        utils._set_allowed_groups(oidc)
+
+        assert oidc.allowed_groups == ("group1", "group2", "group3")
+
+        # 3. Empty allowed groups from environment variable
+
+        os.environ["keycloak_allowed_groups"] = "[]"
+
+        utils._set_allowed_groups(oidc)
+
+        assert oidc.allowed_groups == ()
