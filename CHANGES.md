@@ -1,4 +1,4 @@
-## 1.4.1 (unreleased)
+## 1.4.1 (2025-11-25)
 
 
 - WEB-4331 : Set Allowed Groups with environment variable
