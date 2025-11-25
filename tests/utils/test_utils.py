@@ -90,3 +90,11 @@ class TestUtils:
         utils._set_allowed_groups(oidc)
 
         assert oidc.allowed_groups == ("group1", "group2", "group3")
+
+        # 3. Empty allowed groups from environment variable
+
+        os.environ["keycloak_allowed_groups"] = "[]"
+
+        utils._set_allowed_groups(oidc)
+
+        assert oidc.allowed_groups == ()

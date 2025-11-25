@@ -6,8 +6,10 @@ from urllib.parse import urlparse
 from zope.annotation.interfaces import IAnnotations
 from zope.component.hooks import setSite
 
+import ast
 import logging
 import os
+import re
 import requests
 import time
 import transaction
@@ -810,16 +812,17 @@ def _set_allowed_groups(oidc) -> None:
     """Set allowed groups from environment variable."""
     varenv_allowed_groups = os.environ.get("keycloak_allowed_groups", None)
 
-    # varenv set by puppet is a string representation of a list, e.g. "[group1, group2]"
+    # varenv set by puppet is an unquoted string representation of a list, e.g. "[group1, group2]"
     # we need to convert it to a tuple
+
     if varenv_allowed_groups is not None:
-        if varenv_allowed_groups.startswith("[") and varenv_allowed_groups.endswith(
-            "]"
-        ):
-            varenv_allowed_groups = [
-                group.strip() for group in varenv_allowed_groups[1:-1].split(",")
-            ]
-            oidc.allowed_groups = tuple(varenv_allowed_groups)
+        # add quotes around each group name
+        varenv_allowed_groups = re.sub(
+            r"\b([A-Za-z_][A-Za-z0-9_]*)\b", r'"\1"', varenv_allowed_groups
+        )
+        # convert string representation of list to tuple
+        oidc.allowed_groups = ast.literal_eval(varenv_allowed_groups)
+        oidc.allowed_groups = tuple(oidc.allowed_groups)
         logger.info(f"Set allowed groups to: {varenv_allowed_groups}")
     else:
         logger.info("No environment variable for allowed groups set. Not changing.")
