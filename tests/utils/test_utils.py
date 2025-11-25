@@ -97,12 +97,28 @@ class TestUtils:
 
         utils._set_allowed_groups(oidc)
 
-        assert oidc.allowed_groups == ()
+        assert oidc.allowed_groups == ("",)
 
         # 4. Another format of allowed groups from environment variable (no brackets)
 
-        os.environ["keycloak_allowed_groups"] = "group1"
+        os.environ["keycloak_allowed_groups"] = "group 1"
 
         utils._set_allowed_groups(oidc)
 
-        assert oidc.allowed_groups == ("group1",)
+        assert oidc.allowed_groups == ("group 1",)
+
+        # 5. Another format of allowed groups from environment variable (special chars)
+
+        os.environ[
+            "keycloak_allowed_groups"
+        ] = "[group.1 is - the first!, group_2@second]"
+
+        utils._set_allowed_groups(oidc)
+
+        assert oidc.allowed_groups == ("group.1 is - the first!", "group_2@second")
+
+        os.environ["keycloak_allowed_groups"] = "group.1 is - the first!"
+
+        utils._set_allowed_groups(oidc)
+
+        assert oidc.allowed_groups == ("group.1 is - the first!",)
