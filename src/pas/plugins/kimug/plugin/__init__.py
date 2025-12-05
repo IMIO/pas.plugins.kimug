@@ -7,6 +7,7 @@ from Products.PluggableAuthService.interfaces import plugins as pas_interfaces
 from zope.interface import implementer
 
 import jwt
+import os
 
 
 # from jwt.algorithms import RSAAlgorithm
@@ -71,11 +72,13 @@ class KimugPlugin(OIDCPlugin):
     @security.private
     def getRolesForPrincipal(self, user, request=None):
         """Fulfill RolesPlugin requirements"""
-        # app_id = os.environ.get("application_id", "smartweb")
+        app_id = os.environ.get("application_id", "iA.Smartweb")
         roles = ["Member"]
-        # if app_id in user.getGroups():
-        #     roles.append("Manager")
-        #     return tuple(roles)
+        if app_id in user.getGroups() and user.getProperty("email").endswith(
+            "@imio.be"
+        ):
+            roles.append("Manager")
+            return tuple(roles)
         return tuple(roles)
 
     @security.private
