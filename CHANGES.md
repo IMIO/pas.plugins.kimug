@@ -1,11 +1,10 @@
 ## 1.4.2 (unreleased)
 
-
-- Nothing changed yet.
+- Set administrator role for users in group iA.Smartweb-admin with an imio address.
+  [bsuttor]
 
 
 ## 1.4.1 (2025-11-25)
-
 
 - WEB-4331 : Set Allowed Groups with environment variable
   [remdub]
@@ -27,7 +26,6 @@
 
 
 ## 1.3.1 (2025-09-30)
-
 
 - Do not gave administrator role for users in group iA.Smartweb.
   [bsuttor]
