@@ -1,6 +1,6 @@
 ## 1.4.2 (unreleased)
 
-- Set administrator role for users in group iA.Smartweb with an imio address.
+- Set administrator role for users in group iA.Smartweb-admin with an imio address.
   [bsuttor]
 
 
