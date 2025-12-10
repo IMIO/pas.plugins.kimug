@@ -14,7 +14,7 @@ long_description = f"""
 
 setup(
     name="pas.plugins.kimug",
-    version="1.4.2",
+    version="1.4.3.dev0",
     description="A PAS plugin to set roles to imio keycloak users",
     long_description=long_description,
     long_description_content_type="text/markdown",
