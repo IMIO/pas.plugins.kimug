@@ -73,9 +73,12 @@ class KimugPlugin(OIDCPlugin):
     def getRolesForPrincipal(self, user, request=None):
         """Fulfill RolesPlugin requirements"""
         app_id = os.environ.get("application_id", "iA.Smartweb")
+        admin_group = f"{app_id}-admin"
         roles = ["Member"]
-        if app_id in user.getGroups() and user.getProperty("email").endswith(
-            "@imio.be"
+        if (
+            app_id
+            and admin_group in user.getGroups()
+            and user.getProperty("email").endswith("@imio.be")
         ):
             roles.append("Manager")
             return tuple(roles)
