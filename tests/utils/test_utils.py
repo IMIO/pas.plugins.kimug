@@ -1,5 +1,7 @@
 from pas.plugins.kimug import utils
 from plone import api
+from unittest.mock import patch
+from ZODB.POSException import ConflictError
 from zope.annotation.interfaces import IAnnotations
 
 import os
@@ -122,3 +124,20 @@ class TestUtils:
         utils._set_allowed_groups(oidc)
 
         assert oidc.allowed_groups == ("group.1 is - the first!",)
+
+
+class TestSetOidcSettings:
+    def test_conflict_error_is_handled(self, portal):
+        """ConflictError on commit must be caught and transaction aborted — no exception raised."""
+        with patch("pas.plugins.kimug.utils.transaction") as mock_txn:
+            mock_txn.commit.side_effect = ConflictError()
+            utils.set_oidc_settings(None)
+            mock_txn.abort.assert_called_once()
+
+    def test_settings_are_applied(self, portal):
+        """set_oidc_settings should apply environment values to the OIDC plugin."""
+        with patch.dict(os.environ, {"keycloak_client_id": "my-client"}):
+            with patch("pas.plugins.kimug.utils.transaction"):
+                utils.set_oidc_settings(None)
+        oidc = utils.get_plugin()
+        assert oidc.client_id == "my-client"

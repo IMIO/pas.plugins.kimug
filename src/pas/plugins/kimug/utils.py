@@ -3,6 +3,7 @@ from collections import defaultdict
 from plone import api
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 from urllib.parse import urlparse
+from ZODB.POSException import ConflictError
 from zope.annotation.interfaces import IAnnotations
 from zope.component.hooks import setSite
 
@@ -74,8 +75,15 @@ def set_oidc_settings(context):
 
         _set_allowed_groups(oidc)
 
-        transaction.commit()
-        logger.info("OIDC settings set with set_oidc_settings()")
+        try:
+            transaction.commit()
+            logger.info("OIDC settings set with set_oidc_settings()")
+        except ConflictError:
+            transaction.abort()
+            logger.warning(
+                "ConflictError committing OIDC settings: another instance already "
+                "committed the same values. Settings are correct; skipping."
+            )
     else:
         logger.warning("Could not find OIDC plugin, not setting OIDC settings")
 
