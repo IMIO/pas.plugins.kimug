@@ -1,7 +1,8 @@
 ## 1.4.3 (unreleased)
 
 
-- Nothing changed yet.
+- DEVOPS-339 : Fix ConflictError when multiple Zope instances start simultaneously and commit OIDC settings
+  [remdub]
 
 
 ## 1.4.2 (2025-12-10)
