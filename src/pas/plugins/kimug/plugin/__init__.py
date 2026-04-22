@@ -1,5 +1,8 @@
 from AccessControl import ClassSecurityInfo
 from AccessControl.class_init import InitializeClass
+from jwt import InvalidTokenError
+from jwt import PyJWKClient
+from jwt.exceptions import PyJWKClientError
 from pas.plugins.kimug.interfaces import IKimugPlugin
 from pas.plugins.oidc.plugins import OIDCPlugin
 from Products.PageTemplates.PageTemplateFile import PageTemplateFile
@@ -7,11 +10,12 @@ from Products.PluggableAuthService.interfaces import plugins as pas_interfaces
 from zope.interface import implementer
 
 import jwt
+import logging
 import os
+import time
 
 
-# from jwt.algorithms import RSAAlgorithm
-# import requests
+logger = logging.getLogger("pas.plugins.kimug")
 
 
 def manage_addKimugPlugin(context, id="oidc", title="", RESPONSE=None, **kw):
@@ -38,6 +42,12 @@ class KimugPlugin(OIDCPlugin):
     security = ClassSecurityInfo()
     meta_type = "Kimug Plugin"
     _dont_swallow_my_exceptions = True
+
+    # JWKS client cache. Refreshed after ``_JWKS_CLIENT_TTL`` seconds so key
+    # rotations on the Keycloak side are picked up without a restart.
+    _jwks_client = None
+    _jwks_client_created_at = 0.0
+    _JWKS_CLIENT_TTL = 3600
 
     add_user_url: str = ""
     personal_information_url: str = ""
@@ -106,36 +116,84 @@ class KimugPlugin(OIDCPlugin):
 
     @security.public
     def authenticateCredentials(self, credentials):
-        """credentials -> (userid, login)
+        """credentials -> (userid, login) | None
 
         - 'credentials' will be a mapping, as returned by IExtractionPlugin.
-        - Return a  tuple consisting of user ID (which may be different
-          from the login name) and login
-        - If the credentials cannot be authenticated, return None.
+        - Return a tuple (user_id, login) if the bearer JWT verifies against
+          Keycloak's JWKS, else None.
         """
-        token = credentials.get("token", None)
-        if token:
-            payload = self._decode_token(token)
-            return payload.get("sub"), payload.get("email")
+        token = credentials.get("token")
+        if not token:
+            return None
+        payload = self._decode_token(token)
+        if payload is None:
+            return None
+        sub = payload.get("sub")
+        if not sub:
+            return None
+        return sub, payload.get("email") or sub
+
+    def _get_jwks_client(self):
+        """Return a cached PyJWKClient for the configured Keycloak realm.
+
+        Client is rebuilt after ``_JWKS_CLIENT_TTL`` seconds. PyJWKClient
+        itself caches signing keys keyed by ``kid`` and handles rotation.
+        """
+        now = time.time()
+        if (
+            self._jwks_client is None
+            or now - self._jwks_client_created_at > self._JWKS_CLIENT_TTL
+        ):
+            keycloak_url = os.environ["keycloak_url"].rstrip("/")
+            realm = os.environ["keycloak_realm"]
+            jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
+            type(self)._jwks_client = PyJWKClient(
+                jwks_url,
+                cache_keys=True,
+                lifespan=self._JWKS_CLIENT_TTL,
+                timeout=5,
+            )
+            type(self)._jwks_client_created_at = now
+        return self._jwks_client
 
     def _decode_token(self, token):
-        # Fetch JWKS from Keycloak
-        # keycloak_url = os.environ.get("keycloak_url")
-        # realm = os.environ.get("keycloak_realm")
-        # jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
-        # jwks = requests.get(jwks_url).json()
+        """Decode and fully verify a Keycloak-issued RS256 JWT.
 
-        # Extract public key
-        # public_key = RSAAlgorithm.from_jwk(jwks["keys"][0])
+        Verifies signature, ``alg``, ``iss``, ``aud``, ``exp``, ``iat``, and
+        the presence of ``sub``. Returns the payload on success or ``None``
+        on any failure. Never re-raises: returning None lets the PAS
+        authentication chain fall through to other plugins instead of
+        propagating to HTTP 500.
+        """
+        try:
+            signing_key = self._get_jwks_client().get_signing_key_from_jwt(token)
+        except PyJWKClientError as exc:
+            logger.info("JWKS lookup failed: %s", exc)
+            return None
+        except Exception as exc:
+            # Network, DNS, or misconfiguration. Degrade gracefully.
+            logger.warning("JWKS unreachable: %s", exc)
+            return None
 
-        # Decode & verify
-        # __import__("ipdb").set_trace()
-        # decoded = jwt.decode(
-        #     token, key=public_key, algorithms=["RS256"], audience="account"
-        # )
-
-        decoded = jwt.decode(token, options={"verify_signature": False})
-        return decoded
+        try:
+            return jwt.decode(
+                token,
+                key=signing_key.key,
+                algorithms=["RS256"],
+                audience=os.environ.get("keycloak_audience", "account"),
+                issuer=os.environ.get("keycloak_issuer"),
+                options={
+                    "require": ["exp", "iat", "sub"],
+                    "verify_signature": True,
+                    "verify_exp": True,
+                    "verify_iat": True,
+                    "verify_aud": True,
+                    "verify_iss": True,
+                },
+            )
+        except InvalidTokenError as exc:
+            logger.info("JWT rejected: %s", exc)
+            return None
 
 
 InitializeClass(KimugPlugin)
