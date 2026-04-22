@@ -22,6 +22,8 @@ def get_redirect_uri() -> tuple[str, ...]:
     website_hostname = os.environ.get("WEBSITE_HOSTNAME")
     if website_hostname is not None:
         redirect_uri = f"https://{website_hostname}"
+    elif "localhost" in website_hostname:
+        redirect_uri = f"http://{website_hostname}"
     else:
         redirect_uri = "http://localhost:8080/Plone"
     redirect_uri = f"{redirect_uri}/acl_users/oidc/callback"
