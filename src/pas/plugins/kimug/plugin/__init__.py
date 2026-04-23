@@ -139,22 +139,26 @@ class KimugPlugin(OIDCPlugin):
         Client is rebuilt after ``_JWKS_CLIENT_TTL`` seconds. PyJWKClient
         itself caches signing keys keyed by ``kid`` and handles rotation.
         """
+        # ``type(self)`` is the Acquisition wrapper, not KimugPlugin, so
+        # writing to it silently fails to reach the class-level cache.
+        # Reference the real class explicitly.
+        cls = KimugPlugin
         now = time.time()
         if (
-            self._jwks_client is None
-            or now - self._jwks_client_created_at > self._JWKS_CLIENT_TTL
+            cls._jwks_client is None
+            or now - cls._jwks_client_created_at > cls._JWKS_CLIENT_TTL
         ):
             keycloak_url = os.environ["keycloak_url"].rstrip("/")
             realm = os.environ["keycloak_realm"]
             jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
-            type(self)._jwks_client = PyJWKClient(
+            cls._jwks_client = PyJWKClient(
                 jwks_url,
                 cache_keys=True,
-                lifespan=self._JWKS_CLIENT_TTL,
+                lifespan=cls._JWKS_CLIENT_TTL,
                 timeout=5,
             )
-            type(self)._jwks_client_created_at = now
-        return self._jwks_client
+            cls._jwks_client_created_at = now
+        return cls._jwks_client
 
     def _decode_token(self, token):
         """Decode and fully verify a Keycloak-issued RS256 JWT.
