@@ -48,7 +48,7 @@ def set_oidc_settings(context):
         client_id = os.environ.get("keycloak_client_id", "plone")
         client_secret = os.environ.get("keycloak_client_secret", "12345678910")
         issuer = os.environ.get(
-            "keycloak_issuer", f"https://keycloak.127.0.0.1.nip.io/realms/{realm}/"
+            "keycloak_issuer", f"https://keycloak.127.0.0.1.nip.io/realms/{realm}"
         )
         oidc.redirect_uris = get_redirect_uri()
         oidc.client_id = client_id
