@@ -422,7 +422,7 @@
     "requiredActions" : [ ],
     "realmRoles" : [ "default-roles-plone", "smartweb-admin" ],
     "clientRoles" : {
-      "realm-management" : [ "query-users", "view-users", "query-groups" ],
+      "realm-management" : [ "query-users", "view-users", "query-groups", "view-clients" ],
       "broker" : [ "read-token" ]
     },
     "notBefore" : 0,
