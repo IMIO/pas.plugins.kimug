@@ -55,6 +55,7 @@ setup(
         "plone.api",
         "pas.plugins.oidc>=2.0.0b4",
         "python-keycloak",
+        "PyJWT[crypto]>=2.6",
     ],
     extras_require={
         "test": [

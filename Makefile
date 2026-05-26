@@ -36,6 +36,8 @@ GIT_FOLDER=$(BACKEND_FOLDER)/.git
 VENV_FOLDER=$(BACKEND_FOLDER)/.venv
 BIN_FOLDER=$(VENV_FOLDER)/bin
 
+DOCKER_COMPOSE=docker compose -f $(BACKEND_FOLDER)/tests/docker-compose.yml
+
 
 all: build
 
@@ -106,6 +108,30 @@ $(BIN_FOLDER)/i18ndude: $(BIN_FOLDER)/pip
 i18n: $(BIN_FOLDER)/i18ndude ## Update locales
 	@echo "$(GREEN)==> Updating locales$(RESET)"
 	$(BIN_FOLDER)/update_locale
+
+# Docker
+.PHONY: docker-start
+docker-start: ## Start test services (Keycloak + DB) in background
+	@echo "$(GREEN)==> Starting test services$(RESET)"
+	$(DOCKER_COMPOSE) up -d
+	@echo "$(GREEN)==> Waiting for Keycloak to be ready$(RESET)"
+	@n=0; until curl -sf http://localhost:8180/realms/imio/.well-known/openid-configuration > /dev/null; do \
+		n=$$((n+1)); [ $$n -ge 30 ] && echo "Keycloak did not become ready in time" && exit 1; \
+		sleep 2; \
+	done
+
+.PHONY: docker-stop
+docker-stop: ## Stop test services
+	@echo "$(RED)==> Stopping test services$(RESET)"
+	$(DOCKER_COMPOSE) down
+
+.PHONY: docker-logs
+docker-logs: ## Show test services logs
+	$(DOCKER_COMPOSE) logs -f
+
+.PHONY: docker-status
+docker-status: ## Show test services status
+	$(DOCKER_COMPOSE) ps
 
 # Tests
 .PHONY: test

@@ -13,7 +13,7 @@ class TestPlugin:
         self.portal_url = api.portal.get().absolute_url()
         self.plugin_url = plugin.absolute_url()
 
-    def test_login_with_bearer(self, portal):
+    def test_login_with_bearer(self, portal, keycloak_service, keycloak_issuer):
         """Test login with bearer token."""
 
         payload = {
@@ -29,7 +29,7 @@ class TestPlugin:
         }
 
         response = requests.post(
-            "http://keycloak.traefik.me/realms/imio/protocol/openid-connect/token",
+            f"{keycloak_service}/realms/imio/protocol/openid-connect/token",
             headers=headers,
             data=payload,
         ).json()
@@ -39,13 +39,12 @@ class TestPlugin:
         )
         assert access_token_decoded.get("groups") == ["smartweb"]
 
-        headers = {"Authorization": f"Bearer {access_token}"}
-        response_bearer = requests.get(
-            "http://keycloak.traefik.me/realms/imio/protocol/openid-connect/userinfo",
-            headers=headers,
-        )
-        response_bearer.raise_for_status()
-        assert response_bearer.status_code == 200
+        pas = api.portal.get_tool("acl_users")
+        plugin = getattr(pas, "oidc")
+        result = plugin.authenticateCredentials({"token": access_token})
+        assert result is not None, "Bearer JWT must verify against Keycloak JWKS"
+        user_id, _login = result
+        assert user_id == access_token_decoded["sub"]
 
     def test_create_user(self, browser_layers):
         """Test that IBrowserLayer is registered."""

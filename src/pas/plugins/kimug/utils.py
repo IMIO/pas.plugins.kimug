@@ -22,6 +22,8 @@ def get_redirect_uri() -> tuple[str, ...]:
     website_hostname = os.environ.get("WEBSITE_HOSTNAME")
     if website_hostname is not None:
         redirect_uri = f"https://{website_hostname}"
+    elif website_hostname and "localhost" in website_hostname:
+        redirect_uri = f"http://{website_hostname}"
     else:
         redirect_uri = "http://localhost:8080/Plone"
     redirect_uri = f"{redirect_uri}/acl_users/oidc/callback"
@@ -46,7 +48,7 @@ def set_oidc_settings(context):
         client_id = os.environ.get("keycloak_client_id", "plone")
         client_secret = os.environ.get("keycloak_client_secret", "12345678910")
         issuer = os.environ.get(
-            "keycloak_issuer", f"http://keycloak.traefik.me/realms/{realm}/"
+            "keycloak_issuer", f"https://keycloak.127.0.0.1.nip.io/realms/{realm}"
         )
         oidc.redirect_uris = get_redirect_uri()
         oidc.client_id = client_id
@@ -119,7 +121,7 @@ def get_client_access_token(
 ) -> str | None:
     """Get an access token using client_credentials."""
     keycloak_url = _get_env_default(
-        keycloak_url, "keycloak_url", "http://keycloak.traefik.me/"
+        keycloak_url, "keycloak_url", "https://keycloak.127.0.0.1.nip.io/"
     )
     client_id = _get_env_default(client_id, "keycloak_client_id", "plone")
     client_secret = _get_env_default(
@@ -564,7 +566,9 @@ def realm_exists(realm: str) -> bool:
 def _check_redirect_uris(client_id: str, access_token: str) -> bool:
     """Check if the redirect_uris set in Keycloak match the ones set in the OIDC plugin."""
     oidc = get_plugin()
-    keycloak_url = _get_env_default(None, "keycloak_url", "http://keycloak.traefik.me/")
+    keycloak_url = _get_env_default(
+        None, "keycloak_url", "https://keycloak.127.0.0.1.nip.io/"
+    )
     realm = _get_env_default(None, "keycloak_realm", "plone")
     url = f"{keycloak_url}admin/realms/{realm}/clients?clientId={client_id}"
     headers = {"Authorization": "Bearer " + access_token}
