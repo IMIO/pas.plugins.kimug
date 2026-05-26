@@ -55,9 +55,18 @@ def keycloak_service(docker_ip, docker_services):
 
 
 @pytest.fixture(scope="session")
-def keycloak(keycloak_service):
+def keycloak_issuer(keycloak_service):
+    """Return the actual issuer URL as published by Keycloak's discovery endpoint."""
+    discovery = requests.get(
+        f"{keycloak_service}/realms/imio/.well-known/openid-configuration"
+    ).json()
+    return discovery["issuer"]
+
+
+@pytest.fixture(scope="session")
+def keycloak(keycloak_service, keycloak_issuer):
     return {
-        "issuer": f"{keycloak_service}/realms/imio",
+        "issuer": keycloak_issuer,
         "client_id": "plone",
         "client_secret": "12345678910",  # nosec B105
         "scope": ("openid", "profile", "email"),
@@ -89,7 +98,9 @@ def wait_for():
 
 
 @pytest.fixture()
-def portal(integration, keycloak, keycloak_api, keycloak_service, monkeypatch):
+def portal(
+    integration, keycloak, keycloak_api, keycloak_service, keycloak_issuer, monkeypatch
+):
     portal = integration["portal"]
     setSite(portal)
     plugin = portal.acl_users.oidc
@@ -101,7 +112,7 @@ def portal(integration, keycloak, keycloak_api, keycloak_service, monkeypatch):
         #     api.portal.set_registry_record(name, value)
     monkeypatch.setenv("keycloak_url", keycloak_service)
     monkeypatch.setenv("keycloak_realm", "imio")
-    monkeypatch.setenv("keycloak_issuer", f"{keycloak_service}/realms/imio")
+    monkeypatch.setenv("keycloak_issuer", keycloak_issuer)
     # Reset cached JWKS client so a previous test run's URL isn't reused.
     from pas.plugins.kimug.plugin import KimugPlugin
 

@@ -13,7 +13,7 @@ class TestPlugin:
         self.portal_url = api.portal.get().absolute_url()
         self.plugin_url = plugin.absolute_url()
 
-    def test_login_with_bearer(self, portal, keycloak_service):
+    def test_login_with_bearer(self, portal, keycloak_service, keycloak_issuer):
         """Test login with bearer token."""
 
         payload = {
