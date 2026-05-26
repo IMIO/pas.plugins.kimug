@@ -3,7 +3,7 @@ services:
     build:
       context: keycloak
       args:
-        KEYCLOAK_VERSION: 26.2.4
+        KEYCLOAK_VERSION: 26.5.7
     command: ['start-dev', '--import-realm']
     depends_on:
       - db
@@ -16,16 +16,23 @@ services:
       KC_HEALTH_ENABLED: false
       KC_HTTP_ENABLED: true
       KC_METRICS_ENABLED: false
-      KC_HOSTNAME_URL: http://keycloak.traefik.me/
-      KC_PROXY: reencrypt
+      KC_HOSTNAME: keycloak.127.0.0.1.nip.io
+      KC_PROXY_HEADERS: xforwarded
+      KC_TRUSTSTORE_PATHS: /opt/keycloak/tls/rootCA.pem
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
     volumes:
       - ./keycloak/import:/opt/keycloak/data/import
+      - ./rootCA.pem:/opt/keycloak/tls/rootCA.pem:ro
     ports:
       - 8180:8080
     networks:
       local:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`keycloak.127.0.0.1.nip.io`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
 
   db:
     image: postgres:17.6
@@ -41,6 +48,32 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: keycloak
       POSTGRES_HOST: postgres
+
+  traefik:
+    image: traefik:v3.7.1
+    networks:
+      local:
+        aliases:
+            - keycloak.127.0.0.1.nip.io
+    command:
+      - "--api.insecure=true"
+      - "--log.level=DEBUG"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+    ports:
+      - 80:80
+      - 443:443
+      - 8000:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - ./_wildcard.127.0.0.1.nip.io.pem:/certs/cert.pem:ro
+      - ./_wildcard.127.0.0.1.nip.io-key.pem:/certs/key.pem:ro
 
 
 networks:

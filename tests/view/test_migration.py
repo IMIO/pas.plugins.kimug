@@ -141,7 +141,7 @@
 
 #     def test_migration_view(self, portal):
 #         """Test active plugin of acl_users."""
-#         keycloak_url = "http://keycloak.traefik.me/"
+#         keycloak_url = "https://keycloak.127.0.0.1.nip.io/"
 #         token = access_token(keycloak_url)
 #         init_test_users(portal, keycloak_url, token)
 #         all_kc_user_from_plone = get_keycloak_local_users(keycloak_url, token, "plone")
