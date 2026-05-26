@@ -115,7 +115,10 @@ docker-start: ## Start test services (Keycloak + DB) in background
 	@echo "$(GREEN)==> Starting test services$(RESET)"
 	$(DOCKER_COMPOSE) up -d
 	@echo "$(GREEN)==> Waiting for Keycloak to be ready$(RESET)"
-	$(DOCKER_COMPOSE) exec -T keycloak /bin/bash -c 'until curl -sf http://localhost:8080/health/ready; do sleep 2; done' 2>/dev/null || true
+	@n=0; until curl -sf http://localhost:8180/realms/imio/.well-known/openid-configuration > /dev/null; do \
+		n=$$((n+1)); [ $$n -ge 30 ] && echo "Keycloak did not become ready in time" && exit 1; \
+		sleep 2; \
+	done
 
 .PHONY: docker-stop
 docker-stop: ## Stop test services

@@ -2,7 +2,6 @@
 set -e
 
 command -v mkcert &>/dev/null || { echo "mkcert requis : sudo apt install mkcert"; exit 1; }
-command -v certutil &>/dev/null || { echo "certutil requis : sudo apt install libnss3-tools"; exit 1; }
 
 # CA système
 mkcert -install
@@ -23,6 +22,7 @@ echo "CA mkcert copiée pour Keycloak (rootCA.pem)"
 # Firefox Snap
 FIREFOX_PROFILE=$(find ~/snap/firefox/common/.mozilla/firefox -name "*.default*" -type d 2>/dev/null | head -1)
 if [[ -n "$FIREFOX_PROFILE" ]]; then
+  command -v certutil &>/dev/null || { echo "certutil requis : sudo apt install libnss3-tools"; exit 1; }
   CA_NICK="mkcert $(hostname)"
   ALREADY=$(certutil -L -d "sql:$FIREFOX_PROFILE" 2>/dev/null | grep -F "$CA_NICK" || true)
   if [[ -z "$ALREADY" ]]; then
