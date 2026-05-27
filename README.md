@@ -41,7 +41,7 @@ This command will start a keycloak instance available at https://keycloak.127.0.
 | master   | admin |               | admin    |
 | imio     | kimug | kimug_at_imio.be | kimug    |
 | plone    | plone | plone_at_imio.be | plone    |
-| sso-apps | imio-apps-plone_belleville-ac | | imio-apps-plone_belleville-ac |
+| sso-apps | imio-apps-plone_belleville-ac | imio-apps@kimug.be | Kimug123456*** |
 
 ### export imio realm
 

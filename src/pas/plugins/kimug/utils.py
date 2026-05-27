@@ -31,7 +31,7 @@ def get_redirect_uri() -> tuple[str, ...]:
 
 
 def set_oidc_settings(context):
-    """Set the needed OIDC settings so that Keycloak can be used as authentication source."""
+    """Set the needed OIDC settings so that Keycloak and Keycloak-apps can be used as authentication source."""
     try:
         api.portal.get()
         logger.info("Site found with api.portal.get()")
@@ -43,7 +43,7 @@ def set_oidc_settings(context):
             logger.warning("Could not find Plone site, not setting OIDC settings")
             return
         setSite(site)
-    if oidc := get_plugin():
+    if oidc := get_plugin("oidc"):
         realm = os.environ.get("keycloak_realm", "plone")
         client_id = os.environ.get("keycloak_client_id", "plone")
         client_secret = os.environ.get("keycloak_client_secret", "12345678910")
@@ -88,6 +88,23 @@ def set_oidc_settings(context):
             )
     else:
         logger.warning("Could not find OIDC plugin, not setting OIDC settings")
+
+    if oidc_sso_apps := get_plugin("oidc_sso_apps"):
+        sso_apps_realm = "sso-apps"
+        sso_apps_client_id = os.environ.get("SSO_APPS_CLIENT_ID", "imio-apps-plone")
+        sso_apps_client_secret = os.environ.get(
+            "SSO_APPS_CLIENT_SECRET", "imio-apps-plone-client-secret"
+        )
+        sso_apps_url = os.environ.get(
+            "SSO_APPS_URL", f"https://keycloak.127.0.0.1.nip.io/realms/{sso_apps_realm}"
+        )
+        sso_apps_url_parsed = urlparse(sso_apps_url)
+        sso_apps_issuer = f"{sso_apps_url_parsed.scheme}://{sso_apps_url_parsed.netloc}{'/'.join(sso_apps_url_parsed.path.split('/')[:3])}"
+        oidc_sso_apps.client_id = sso_apps_client_id
+        oidc_sso_apps.client_secret = sso_apps_client_secret
+        oidc_sso_apps.issuer = sso_apps_issuer
+        oidc_sso_apps.scope = ("openid", "profile", "email")
+        oidc_sso_apps.userinfo_endpoint_method = "GET"
 
 
 def get_admin_access_token(keycloak_url, username, password):
@@ -160,15 +177,15 @@ def get_client_access_token(
     return access_token
 
 
-def get_plugin():
+def get_plugin(pluginid="oidc"):
     """Get the OIDC plugin."""
     pas = api.portal.get_tool("acl_users")
     try:
-        oidc = pas.oidc
-    except AttributeError:
+        plugin = pas[pluginid]
+    except (KeyError, AttributeError):
         logger.warning("Could not find OIDC plugin with get_plugin().")
         return None
-    return oidc
+    return plugin
 
 
 def get_keycloak_users():
@@ -565,7 +582,7 @@ def realm_exists(realm: str) -> bool:
 
 def _check_redirect_uris(client_id: str, access_token: str) -> bool:
     """Check if the redirect_uris set in Keycloak match the ones set in the OIDC plugin."""
-    oidc = get_plugin()
+    oidc = get_plugin("oidc")
     keycloak_url = _get_env_default(
         None, "keycloak_url", "https://keycloak.127.0.0.1.nip.io/"
     )
@@ -598,7 +615,7 @@ def check_keycloak_settings() -> bool:
     And if the redirect_uris set in Keycloak match the ones set in the OIDC plugin.
     """
 
-    oidc = get_plugin()
+    oidc = get_plugin("oidc")
     if not oidc:
         logger.error("OIDC plugin not found")
         return False
@@ -698,7 +715,7 @@ def get_keycloak_users_from_oidc():
 
     # Fetch users from Keycloak
     # Get all users from the "iA.Smartweb" group in the realm
-    oidc = get_plugin()
+    oidc = get_plugin("oidc")
     group_names = oidc.allowed_groups
     # group_name = "iA.Smartweb"
     group_url = f"{keycloak_url}admin/realms/{realm}/groups"
@@ -750,7 +767,7 @@ def get_keycloak_users_from_oidc():
 
 def add_keycloak_users_to_plone(users):
     """Add Keycloak users to Plone if they do not already exist."""
-    oidc = get_plugin()
+    oidc = get_plugin("oidc")
     users_added = 0
 
     for user in users:

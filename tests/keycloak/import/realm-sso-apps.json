@@ -636,13 +636,14 @@
     "clientId" : "imio-apps-plone",
     "name" : "imio-apps-plone",
     "description" : "",
+    "rootUrl" : "",
     "adminUrl" : "",
     "baseUrl" : "",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "secret" : "JySnQlG3vQAtFeBYGi74KXcYfnTfsfHl",
+    "secret" : "imio-apps-plone-client-secret",
     "redirectUris" : [ ],
     "webOrigins" : [ "*" ],
     "notBefore" : 0,
@@ -656,23 +657,27 @@
     "frontchannelLogout" : false,
     "protocol" : "openid-connect",
     "attributes" : {
+      "logout.confirmation.enabled" : "false",
+      "standard.token.exchange.enabled" : "false",
+      "oauth2.jwt.authorization.grant.enabled" : "false",
+      "post.logout.redirect.uris" : "+",
+      "oauth2.device.authorization.grant.enabled" : "false",
+      "use.jwks.url" : "false",
+      "backchannel.logout.revoke.offline.tokens" : "false",
+      "use.refresh.tokens" : "true",
+      "exclude.session.state.from.auth.response" : "false",
       "realm_client" : "false",
+      "oidc.ciba.grant.enabled" : "false",
       "exclude.issuer.from.auth.response" : "false",
       "backchannel.logout.session.required" : "true",
       "client_credentials.use_refresh_token" : "false",
-      "standard.token.exchange.enabled" : "false",
-      "post.logout.redirect.uris" : "+",
       "display.on.consent.screen" : "false",
-      "oauth2.device.authorization.grant.enabled" : "false",
-      "backchannel.logout.revoke.offline.tokens" : "false",
-      "use.refresh.tokens" : "true",
-      "dpop.bound.access.tokens" : "false",
-      "exclude.session.state.from.auth.response" : "false"
+      "dpop.bound.access.tokens" : "false"
     },
     "authenticationFlowBindingOverrides" : { },
     "fullScopeAllowed" : true,
     "nodeReRegistrationTimeout" : -1,
-    "defaultClientScopes" : [ "web-origins", "roles", "profile", "groups", "basic", "email" ],
+    "defaultClientScopes" : [ "web-origins", "service_account", "roles", "profile", "groups", "basic", "email" ],
     "optionalClientScopes" : [ "address", "phone", "offline_access", "microprofile-jwt" ]
   }, {
     "id" : "2ddb7b47-cd44-496e-a32f-c5a83b4f5862",
@@ -1527,7 +1532,7 @@
       "subType" : "anonymous",
       "subComponents" : { },
       "config" : {
-        "allowed-protocol-mapper-types" : [ "oidc-full-name-mapper", "oidc-usermodel-attribute-mapper", "saml-role-list-mapper", "oidc-usermodel-property-mapper", "saml-user-property-mapper", "oidc-address-mapper", "saml-user-attribute-mapper", "oidc-sha256-pairwise-sub-mapper" ]
+        "allowed-protocol-mapper-types" : [ "oidc-full-name-mapper", "saml-user-attribute-mapper", "oidc-sha256-pairwise-sub-mapper", "oidc-usermodel-attribute-mapper", "oidc-usermodel-property-mapper", "oidc-address-mapper", "saml-role-list-mapper", "saml-user-property-mapper" ]
       }
     }, {
       "id" : "4f6f68cd-758e-47e6-bb86-d1c2ab35f236",
@@ -1536,7 +1541,7 @@
       "subType" : "authenticated",
       "subComponents" : { },
       "config" : {
-        "allowed-protocol-mapper-types" : [ "oidc-usermodel-attribute-mapper", "saml-role-list-mapper", "oidc-sha256-pairwise-sub-mapper", "saml-user-attribute-mapper", "oidc-usermodel-property-mapper", "saml-user-property-mapper", "oidc-address-mapper", "oidc-full-name-mapper" ]
+        "allowed-protocol-mapper-types" : [ "saml-role-list-mapper", "oidc-full-name-mapper", "oidc-sha256-pairwise-sub-mapper", "oidc-usermodel-property-mapper", "oidc-usermodel-attribute-mapper", "oidc-address-mapper", "saml-user-attribute-mapper", "saml-user-property-mapper" ]
       }
     }, {
       "id" : "9e3674d0-b3ab-4bd6-b01d-97131f260950",
