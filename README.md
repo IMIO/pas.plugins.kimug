@@ -18,7 +18,30 @@ make build
 make create-site
 ```
 
-## Test environment
+## Test / dev environment
+
+### Init dev environment
+
+You have to initialize a certificate with `tests/mkcert.sh` .
+
+
+### Start dev environment
+
+```shell
+make docker-start
+```
+
+This command will start a keycloak instance available at https://keycloak.127.0.0.1.nip.io
+
+
+### Tests dev accounts
+
+| Realm    | login | e-mail        | password |
+| ---------| ----- | --------------| -------- |
+| master   | admin |               | admin    |
+| imio     | kimug | kimug_at_imio.be | kimug    |
+| plone    | plone | plone_at_imio.be | plone    |
+| sso-apps | imio-apps-plone_belleville-ac | | imio-apps-plone_belleville-ac |
 
 ### export imio realm
 
@@ -27,14 +50,6 @@ cd tests && docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /
 
 docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak/data/import/realm-plone.json --realm plone
 ```
-
-### Tests credentials
-
-- login : kimug
-
-- email : kimug@imio.be
-
-- password : kimug
 
 ### Run test
 
