@@ -115,6 +115,7 @@ class TestPlugin:
             f"{keycloak_service}/realms/imio/protocol/openid-connect/token",
             headers=headers,
             data=payload,
+            timeout=30,
         ).json()
         access_token = response.get("access_token")
         decoded = jwt.decode(access_token, options={"verify_signature": False})
