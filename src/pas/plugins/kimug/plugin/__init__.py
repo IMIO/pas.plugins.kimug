@@ -130,9 +130,11 @@ class KimugPlugin(OIDCPlugin):
         token = credentials.get("token")
         if not token:
             return None
-        # __import__("ipdb").set_trace()
-        unverified_payload = jwt.decode(token, options={"verify_signature": False})
-        issuer = unverified_payload["iss"]
+        try:
+            unverified_payload = jwt.decode(token, options={"verify_signature": False})
+            issuer = unverified_payload.get("iss", "")
+        except InvalidTokenError:
+            return None
         if issuer.endswith("/realms/sso-apps"):
             plugin = "oidc_sso_apps"
         else:
