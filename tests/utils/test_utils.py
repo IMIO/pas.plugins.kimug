@@ -71,6 +71,12 @@ class TestUtils:
         # 3.1 All authentication plugins should still be enabled.
         assert all_plugins.get("active") == initially_enabled_plugins
 
+    def test_get_plugin_with_sso_apps_id(self, portal):
+        """get_plugin('oidc_sso_apps') should return the oidc_sso_apps plugin."""
+        plugin = utils.get_plugin("oidc_sso_apps")
+        assert plugin is not None
+        assert plugin.meta_type == "Kimug Plugin"
+
     def test_set_allowed_groups(self, portal):
         """Test set_allowed_groups method."""
 
@@ -141,3 +147,18 @@ class TestSetOidcSettings:
                 utils.set_oidc_settings(None)
         oidc = utils.get_plugin()
         assert oidc.client_id == "my-client"
+
+    def test_sso_apps_settings_are_applied(self, portal):
+        """set_oidc_settings should configure the oidc_sso_apps plugin from SSO_APPS_* env vars."""
+        env = {
+            "SSO_APPS_CLIENT_ID": "test-client",
+            "SSO_APPS_CLIENT_SECRET": "test-secret",
+            "SSO_APPS_URL": "https://sso.example.com/realms/sso-apps",
+        }
+        with patch.dict(os.environ, env):
+            with patch("pas.plugins.kimug.utils.transaction"):
+                utils.set_oidc_settings(None)
+        plugin = utils.get_plugin("oidc_sso_apps")
+        assert plugin.client_id == "test-client"
+        assert plugin.client_secret == "test-secret"
+        assert plugin.issuer == "https://sso.example.com/realms/sso-apps"

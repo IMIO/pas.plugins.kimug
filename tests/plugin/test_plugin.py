@@ -1,5 +1,6 @@
 from oic.oic.message import OpenIDSchema
 from plone import api
+from unittest.mock import patch
 
 import jwt
 import os
@@ -56,6 +57,91 @@ class TestPlugin:
         plugin.rememberIdentity(userinfo)
         assert pas.getUserById("kimug") is not None
         assert api.user.get_users()[0].getUserId() == "kimug"
+
+    def test_ensure_user_exists_creates_user(self, portal):
+        """_ensure_user_exists should create a Plone user with email and fullname from payload."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            plugin._ensure_user_exists(
+                "new-uid", {"email": "new@example.com", "name": "New User"}
+            )
+            user = api.user.get(userid="new-uid")
+        assert user is not None
+        assert user.getProperty("email") == "new@example.com"
+        assert user.getProperty("fullname") == "New User"
+
+    def test_ensure_user_exists_skips_existing_user(self, portal):
+        """_ensure_user_exists should not modify an existing user."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            api.user.create(username="existing-user", email="orig@example.com")
+            plugin._ensure_user_exists(
+                "existing-user", {"email": "changed@example.com"}
+            )
+            user = api.user.get(userid="existing-user")
+        assert user.getProperty("email") == "orig@example.com"
+
+    def test_ensure_user_exists_uses_fallback_email(self, portal):
+        """_ensure_user_exists should use {userid}@keycloak.local when email is absent."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            plugin._ensure_user_exists("no-email-user", {})
+            user = api.user.get(userid="no-email-user")
+        assert user is not None
+        assert user.getProperty("email") == "no-email-user@keycloak.local"
+
+    def test_ensure_user_exists_swallows_exceptions(self, portal):
+        """_ensure_user_exists must not propagate exceptions from api.user.create."""
+        plugin = portal.acl_users.oidc
+        with patch(
+            "pas.plugins.kimug.plugin.api.user.create", side_effect=ValueError("boom")
+        ):
+            plugin._ensure_user_exists("boom-user", {"email": "x@x.com"})
+
+    def test_authenticate_creates_user_on_first_login(
+        self, portal, keycloak_service, keycloak_issuer
+    ):
+        """authenticateCredentials should auto-create the Plone user on first successful JWT auth."""
+        payload = {
+            "grant_type": "password",
+            "client_id": "keycloak-idp",
+            "client_secret": "12345678910",
+            "username": "kimug",
+            "password": "kimug",
+            "scope": ["openid"],
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        response = requests.post(
+            f"{keycloak_service}/realms/imio/protocol/openid-connect/token",
+            headers=headers,
+            data=payload,
+        ).json()
+        access_token = response.get("access_token")
+        decoded = jwt.decode(access_token, options={"verify_signature": False})
+        user_id = decoded["sub"]
+
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            result = plugin.authenticateCredentials({"token": access_token})
+            user = api.user.get(userid=user_id)
+
+        assert result is not None
+        assert user is not None, "User should be auto-created after first JWT auth"
+
+    def test_authenticate_routes_sso_apps_issuer(self, portal):
+        """authenticateCredentials should call _decode_token(plugin='oidc_sso_apps') for sso-apps tokens."""
+        token = jwt.encode(
+            {"iss": "https://keycloak.example.com/realms/sso-apps", "sub": "sso-sub"},
+            "secret",
+            algorithm="HS256",
+        )
+        plugin = portal.acl_users.oidc
+        with patch(
+            "pas.plugins.kimug.plugin.KimugPlugin._decode_token",
+            return_value={"sub": "sso-sub", "email": "sso@example.com"},
+        ) as mock_decode:
+            plugin.authenticateCredentials({"token": token})
+            mock_decode.assert_called_once_with(token, plugin="oidc_sso_apps")
 
     def test_groups_roles(self, profile_last_version):
         """Test latest version of default profile."""
