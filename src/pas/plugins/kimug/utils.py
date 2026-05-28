@@ -105,6 +105,7 @@ def set_oidc_settings(context):
         oidc_sso_apps.issuer = sso_apps_issuer
         oidc_sso_apps.scope = ("openid", "profile", "email")
         oidc_sso_apps.userinfo_endpoint_method = "GET"
+        # no redirect_uris for this plugin, as it is only used for token validation of the apps
 
 
 def get_admin_access_token(keycloak_url, username, password):
