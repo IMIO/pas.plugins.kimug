@@ -1,3 +1,28 @@
+## 1.5.0 (2026-05-29)
+
+
+### New features:
+
+- Add SSO apps authentication via a second PAS plugin (`oidc_sso_apps`) backed by a dedicated `sso-apps` Keycloak realm.
+  Bearer tokens are routed to the correct plugin by inspecting the `iss` claim; Plone users are created automatically on first access.
+  A sync view (`/keycloak_sso_apps_users`) lets administrators bulk-import SSO app users. Configure via `SSO_APPS_CLIENT_ID`, `SSO_APPS_CLIENT_SECRET`, `SSO_APPS_URL`, `SSO_APPS_ACCESS_GROUP`.
+  [remdub] sso-apps-authentication
+
+
+### Bug fixes:
+
+- **Security:** Kimug bearer-token authentication now verifies JWT signatures
+  against the Keycloak realm's JWKS with RS256, and checks `iss`, `aud`,
+  `exp`, `iat`. Previously `jwt.decode(..., options={"verify_signature": False})`
+  accepted any JWT — including attacker-forged tokens — allowing account
+  takeover by sending `Authorization: Bearer <unsigned.jwt>`. `_decode_token`
+  now returns `None` on any verification failure instead of raising, so the
+  PAS authentication chain degrades cleanly.
+  Configure `keycloak_url`, `keycloak_realm`, `keycloak_issuer` and
+  `keycloak_audience` via environment variables (audience defaults to
+  `account`).
+  [bsuttor] kimug-jwt-verify
+
 ## 1.4.4 (unreleased)
 
 
