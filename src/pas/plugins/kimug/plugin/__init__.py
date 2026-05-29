@@ -6,12 +6,9 @@ from jwt.exceptions import PyJWKClientError
 from pas.plugins.kimug.interfaces import IKimugPlugin
 from pas.plugins.oidc.plugins import OIDCPlugin
 from plone import api
-from plone.protect.interfaces import IDisableCSRFProtection
 from Products.PageTemplates.PageTemplateFile import PageTemplateFile
 from Products.PluggableAuthService.interfaces import plugins as pas_interfaces
 from urllib.parse import urlparse
-from zope.globalrequest import getRequest
-from zope.interface import alsoProvides
 from zope.interface import implementer
 
 import jwt
@@ -250,20 +247,19 @@ class KimugPlugin(OIDCPlugin):
     def _ensure_user_exists(self, userid, payload):
         if api.user.get(userid=userid) is not None:
             return
-
-        request = getRequest()
-        if request is not None:
-            alsoProvides(request, IDisableCSRFProtection)
-
-        email = payload.get("email") or f"{userid}@keycloak.local"
         try:
-            api.user.create(
-                username=userid,
-                email=email,
-                properties={"fullname": payload.get("name", userid)},
-            )
+            new_user = self._create_user(userid)
         except Exception:
             logger.exception("Could not create local user for %s", userid)
+        userinfo = {
+            "username": payload["email"],
+            "email": payload["email"],
+            "name": payload["preferred_username"],
+        }
+        try:
+            self._update_user(new_user, userinfo, first_login=True)
+        except Exception as e:
+            logger.error(f"Not able to update user {payload['email']}, {e}")
 
 
 InitializeClass(KimugPlugin)

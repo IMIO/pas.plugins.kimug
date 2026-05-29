@@ -59,16 +59,16 @@ class TestPlugin:
         assert api.user.get_users()[0].getUserId() == "kimug"
 
     def test_ensure_user_exists_creates_user(self, portal):
-        """_ensure_user_exists should create a Plone user with email and fullname from payload."""
+        """_ensure_user_exists should create a Plone user with email from payload."""
         plugin = portal.acl_users.oidc
         with api.env.adopt_roles(["Manager"]):
             plugin._ensure_user_exists(
-                "new-uid", {"email": "new@example.com", "name": "New User"}
+                "new-uid",
+                {"email": "new@example.com", "preferred_username": "new-user"},
             )
             user = api.user.get(userid="new-uid")
         assert user is not None
         assert user.getProperty("email") == "new@example.com"
-        assert user.getProperty("fullname") == "New User"
 
     def test_ensure_user_exists_skips_existing_user(self, portal):
         """_ensure_user_exists should not modify an existing user."""
@@ -81,22 +81,16 @@ class TestPlugin:
             user = api.user.get(userid="existing-user")
         assert user.getProperty("email") == "orig@example.com"
 
-    def test_ensure_user_exists_uses_fallback_email(self, portal):
-        """_ensure_user_exists should use {userid}@keycloak.local when email is absent."""
-        plugin = portal.acl_users.oidc
-        with api.env.adopt_roles(["Manager"]):
-            plugin._ensure_user_exists("no-email-user", {})
-            user = api.user.get(userid="no-email-user")
-        assert user is not None
-        assert user.getProperty("email") == "no-email-user@keycloak.local"
-
     def test_ensure_user_exists_swallows_exceptions(self, portal):
-        """_ensure_user_exists must not propagate exceptions from api.user.create."""
+        """_ensure_user_exists must not propagate exceptions from _create_user."""
         plugin = portal.acl_users.oidc
         with patch(
-            "pas.plugins.kimug.plugin.api.user.create", side_effect=ValueError("boom")
+            "pas.plugins.kimug.plugin.KimugPlugin._create_user",
+            side_effect=ValueError("boom"),
         ):
-            plugin._ensure_user_exists("boom-user", {"email": "x@x.com"})
+            plugin._ensure_user_exists(
+                "boom-user", {"email": "x@x.com", "preferred_username": "x"}
+            )
 
     def test_authenticate_creates_user_on_first_login(
         self, portal, keycloak_service, keycloak_issuer
@@ -143,7 +137,11 @@ class TestPlugin:
         plugin = portal.acl_users.oidc
         with patch(
             "pas.plugins.kimug.plugin.KimugPlugin._decode_token",
-            return_value={"sub": "sso-sub", "email": "sso@example.com"},
+            return_value={
+                "sub": "sso-sub",
+                "email": "sso@example.com",
+                "preferred_username": "sso-user",
+            },
         ) as mock_decode:
             plugin.authenticateCredentials({"token": token})
             mock_decode.assert_called_once_with(token, plugin="oidc_sso_apps")
@@ -192,7 +190,11 @@ class TestPlugin:
         plugin = portal.acl_users.oidc
         with patch(
             "pas.plugins.kimug.plugin.KimugPlugin._decode_token",
-            return_value={"sub": "sso-sub", "email": "sso@example.com"},
+            return_value={
+                "sub": "sso-sub",
+                "email": "sso@example.com",
+                "preferred_username": "sso-user",
+            },
         ) as mock_decode:
             plugin.authenticateCredentials({"token": token})
         mock_decode.assert_called_once_with(token, plugin="oidc_sso_apps")
@@ -213,7 +215,11 @@ class TestPlugin:
         try:
             with patch(
                 "pas.plugins.kimug.plugin.KimugPlugin._decode_token",
-                return_value={"sub": "sso-sub", "email": "sso@example.com"},
+                return_value={
+                    "sub": "sso-sub",
+                    "email": "sso@example.com",
+                    "preferred_username": "sso-user",
+                },
             ) as mock_decode:
                 plugin.authenticateCredentials({"token": token})
             mock_decode.assert_called_once_with(token, plugin="oidc_sso_apps")
