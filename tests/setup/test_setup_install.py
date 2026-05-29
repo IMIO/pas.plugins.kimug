@@ -26,3 +26,7 @@ class TestSetupInstall:
             interface = info["interface"]
             if info["id"] in ["IChallengePlugin", "IRolesPlugin"]:
                 assert interface.providedBy(oidc)
+
+    def test_oidc_sso_apps_plugin_installed(self, portal):
+        """oidc_sso_apps plugin should be installed in acl_users after post_install."""
+        assert "oidc_sso_apps" in portal.acl_users.objectIds()

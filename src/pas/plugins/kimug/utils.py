@@ -31,7 +31,7 @@ def get_redirect_uri() -> tuple[str, ...]:
 
 
 def set_oidc_settings(context):
-    """Set the needed OIDC settings so that Keycloak can be used as authentication source."""
+    """Set the needed OIDC settings so that Keycloak and Keycloak-apps can be used as authentication source."""
     try:
         api.portal.get()
         logger.info("Site found with api.portal.get()")
@@ -43,7 +43,7 @@ def set_oidc_settings(context):
             logger.warning("Could not find Plone site, not setting OIDC settings")
             return
         setSite(site)
-    if oidc := get_plugin():
+    if oidc := get_plugin("oidc"):
         realm = os.environ.get("keycloak_realm", "plone")
         client_id = os.environ.get("keycloak_client_id", "plone")
         client_secret = os.environ.get("keycloak_client_secret", "12345678910")
@@ -88,6 +88,24 @@ def set_oidc_settings(context):
             )
     else:
         logger.warning("Could not find OIDC plugin, not setting OIDC settings")
+
+    if oidc_sso_apps := get_plugin("oidc_sso_apps"):
+        sso_apps_realm = "sso-apps"
+        sso_apps_client_id = os.environ.get("SSO_APPS_CLIENT_ID", "imio-apps-plone")
+        sso_apps_client_secret = os.environ.get(
+            "SSO_APPS_CLIENT_SECRET", "imio-apps-plone-client-secret"
+        )
+        sso_apps_url = os.environ.get(
+            "SSO_APPS_URL", f"https://keycloak.127.0.0.1.nip.io/realms/{sso_apps_realm}"
+        )
+        sso_apps_url_parsed = urlparse(sso_apps_url)
+        sso_apps_issuer = f"{sso_apps_url_parsed.scheme}://{sso_apps_url_parsed.netloc}{'/'.join(sso_apps_url_parsed.path.split('/')[:3])}"
+        oidc_sso_apps.client_id = sso_apps_client_id
+        oidc_sso_apps.client_secret = sso_apps_client_secret
+        oidc_sso_apps.issuer = sso_apps_issuer
+        oidc_sso_apps.scope = ("openid", "profile", "email")
+        oidc_sso_apps.userinfo_endpoint_method = "GET"
+        # no redirect_uris for this plugin, as it is only used for token validation of the apps
 
 
 def get_admin_access_token(keycloak_url, username, password):
@@ -160,15 +178,15 @@ def get_client_access_token(
     return access_token
 
 
-def get_plugin():
+def get_plugin(pluginid="oidc"):
     """Get the OIDC plugin."""
     pas = api.portal.get_tool("acl_users")
     try:
-        oidc = pas.oidc
-    except AttributeError:
+        plugin = pas[pluginid]
+    except (KeyError, AttributeError):
         logger.warning("Could not find OIDC plugin with get_plugin().")
         return None
-    return oidc
+    return plugin
 
 
 def get_keycloak_users():
@@ -565,7 +583,7 @@ def realm_exists(realm: str) -> bool:
 
 def _check_redirect_uris(client_id: str, access_token: str) -> bool:
     """Check if the redirect_uris set in Keycloak match the ones set in the OIDC plugin."""
-    oidc = get_plugin()
+    oidc = get_plugin("oidc")
     keycloak_url = _get_env_default(
         None, "keycloak_url", "https://keycloak.127.0.0.1.nip.io/"
     )
@@ -593,39 +611,44 @@ def _check_redirect_uris(client_id: str, access_token: str) -> bool:
     return False
 
 
-def check_keycloak_settings() -> bool:
+def check_keycloak_settings(plugin="oidc") -> bool:
     """Check if we can get an access token with the OIDC settings.
     And if the redirect_uris set in Keycloak match the ones set in the OIDC plugin.
     """
 
-    oidc = get_plugin()
+    oidc = get_plugin(plugin)
     if not oidc:
-        logger.error("OIDC plugin not found")
+        logger.error(f"OIDC plugin {plugin} not found")
         return False
     issuer = oidc.issuer
     if not issuer:
-        logger.error("OIDC issuer not set")
+        logger.error(f"OIDC issuer not set for plugin {plugin}")
         return False
     realm = [item for item in issuer.split("/") if item][-1]
     issuer_parsed = urlparse(issuer)
     if not issuer_parsed.scheme or not issuer_parsed.netloc:
-        logger.error("OIDC issuer is not a valid URL")
+        logger.error(f"OIDC issuer is not a valid URL for plugin {plugin}")
         return False
     keycloak_url = f"{issuer_parsed.scheme}://{issuer_parsed.netloc}/"
     client_id = oidc.client_id
     client_secret = oidc.client_secret
     if not client_id or not client_secret:
-        logger.error("OIDC client_id or client_secret not set")
+        logger.error(f"OIDC client_id or client_secret not set for plugin {plugin}")
         return False
     access_token = get_client_access_token(
         keycloak_url, realm, client_id, client_secret
     )
     if access_token is None:
-        logger.error("Could not get access token from Keycloak with OIDC settings")
+        logger.error(
+            f"Could not get access token from Keycloak with OIDC settings for plugin {plugin}"
+        )
         return False
-    if _check_redirect_uris(client_id, access_token) is False:
-        logger.error("Redirect URIs in Keycloak do not match OIDC settings")
-        return False
+    if oidc.redirect_uris:
+        if _check_redirect_uris(client_id, access_token) is False:
+            logger.error(
+                "Redirect URIs in Keycloak do not match OIDC settings for plugin {plugin}"
+            )
+            return False
     return True
 
 
@@ -698,7 +721,7 @@ def get_keycloak_users_from_oidc():
 
     # Fetch users from Keycloak
     # Get all users from the "iA.Smartweb" group in the realm
-    oidc = get_plugin()
+    oidc = get_plugin("oidc")
     group_names = oidc.allowed_groups
     # group_name = "iA.Smartweb"
     group_url = f"{keycloak_url}admin/realms/{realm}/groups"
@@ -748,9 +771,82 @@ def get_keycloak_users_from_oidc():
             return []
 
 
+def get_keycloak_users_from_oidc_sso_apps():
+    """Get Keycloak users from SSO apps."""
+    oidc_sso_apps = get_plugin("oidc_sso_apps")
+    if not oidc_sso_apps:
+        logger.error("OIDC SSO Apps plugin not found")
+        return []
+    realm = "sso-apps"
+    issuer = oidc_sso_apps.issuer
+    if not issuer:
+        logger.error("OIDC SSO Apps issuer not set")
+        return []
+    issuer_parsed = urlparse(issuer)
+    if not issuer_parsed.scheme or not issuer_parsed.netloc:
+        logger.error("OIDC SSO Apps issuer is not a valid URL")
+        return []
+
+    keycloak_url = f"{issuer_parsed.scheme}://{issuer_parsed.netloc}/"
+    client_id = oidc_sso_apps.client_id
+    client_secret = oidc_sso_apps.client_secret
+    access_token = get_client_access_token(
+        keycloak_url, realm, client_id, client_secret
+    )
+    if access_token is None:
+        logger.error(
+            "Could not get access token from Keycloak with OIDC settings for sso-apps plugin"
+        )
+        return None
+
+    group_url = f"{keycloak_url}admin/realms/{realm}/groups"
+    group_response = requests.get(
+        url=group_url, headers={"Authorization": f"Bearer {access_token}"}, timeout=30
+    )
+    group_response.raise_for_status()
+
+    groups = group_response.json()
+    access_group = os.environ.get("SSO_APPS_ACCESS_GROUP", "access_imio-apps-kimug")
+    group_id = None
+    for group in groups:
+        if group.get("name") == access_group:
+            group_id = group.get("id")
+            break
+
+    url = f"{keycloak_url}admin/realms/{realm}/groups/{group_id}/members?max=100000"
+    users = []
+    headers = {"Authorization": f"Bearer {access_token}"}
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30)
+        response.raise_for_status()
+        users_data = response.json()
+
+        # Extract username and email from each user
+        for user in users_data:
+            user_info = {
+                "username": user.get("username", ""),
+                "email": user.get("email", ""),
+                "keycloak_id": user.get("id", ""),
+                "firstName": user.get("firstName", ""),
+                "lastName": user.get("lastName", ""),
+            }
+            # Only include users that have both username and email
+            if user_info["username"] and user_info["email"]:
+                users.append(user_info)
+
+        logger.info(f"Retrieved {len(users)} users from Keycloak realm '{realm}'")
+        return users
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching users from Keycloak: {e}")
+        return []
+    except ValueError as e:
+        logger.error(f"Error parsing users response: {e}")
+        return []
+
+
 def add_keycloak_users_to_plone(users):
     """Add Keycloak users to Plone if they do not already exist."""
-    oidc = get_plugin()
+    oidc = get_plugin("oidc")
     users_added = 0
 
     for user in users:

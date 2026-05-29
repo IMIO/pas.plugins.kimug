@@ -34,12 +34,20 @@
               >
                 <span i18n:translate="">Sync users with Keycloak</span>
               </a>
+              <a class="btn btn-secondary ml-2"
+                 tal:attributes="
+                   href string:${context/absolute_url}/@@keycloak_sso_apps_users;
+                 "
+              >
+                <span i18n:translate="">Sync users with Keycloak sso apps</span>
+              </a>
             </div>
 
             <div>
               <h2 i18n:translate="">Current OIDC Settings</h2>
             </div>
             <div tal:replace="structure view/checkSettings"></div>
+            <div tal:replace="structure python:view.checkSettings(plugin='oidc_sso_apps')"></div>
             <div class="alert alert-warning"
                  role="alert"
             >

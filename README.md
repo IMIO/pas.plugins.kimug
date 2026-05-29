@@ -18,23 +18,39 @@ make build
 make create-site
 ```
 
-## Test environment
+## Test / dev environment
 
-### export imio realm
+### Init dev environment
+
+You have to initialize a certificate with `tests/mkcert.sh` .
+
+
+### Start dev environment
 
 ```shell
-cd tests && docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak/data/import/realm-imio.json --realm imio
-
-docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak/data/import/realm-plone.json --realm plone
+make docker-start
 ```
 
-### Tests credentials
+This command will start a keycloak instance available at https://keycloak.127.0.0.1.nip.io
 
-- login : kimug
 
-- email : kimug@imio.be
+### Tests dev accounts
 
-- password : kimug
+| Realm    | login | e-mail        | password |
+| ---------| ----- | --------------| -------- |
+| master   | admin |               | admin    |
+| imio     | kimug | kimug_at_imio.be | kimug    |
+| plone    | plone | plone_at_imio.be | plone    |
+| sso-apps | imio-apps-plone_belleville-ac | imio-apps_at_kimug.be | Kimug123456*** |
+
+### Export keycloak realms
+
+```shell
+cd tests
+docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak/data/import/realm-imio.json --realm imio
+docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak/data/import/realm-plone.json --realm plone
+docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak/data/import/realm-sso-apps.json --realm sso-apps
+```
 
 ### Run test
 

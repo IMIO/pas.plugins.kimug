@@ -36,6 +36,14 @@
       />
 
   <browser:page
+      name="keycloak_sso_apps_users"
+      for="plone.base.interfaces.IPloneSiteRoot"
+      class=".view.KeycloakSSOAppsUsersView"
+      permission="cmf.ManagePortal"
+      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
+      />
+
+  <browser:page
       name="login"
       for="pas.plugins.kimug.interfaces.IKimugPlugin"
       class=".view.KimugLoginView"

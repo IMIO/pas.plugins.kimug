@@ -5,8 +5,10 @@ from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientError
 from pas.plugins.kimug.interfaces import IKimugPlugin
 from pas.plugins.oidc.plugins import OIDCPlugin
+from plone import api
 from Products.PageTemplates.PageTemplateFile import PageTemplateFile
 from Products.PluggableAuthService.interfaces import plugins as pas_interfaces
+from urllib.parse import urlparse
 from zope.interface import implementer
 
 import jwt
@@ -125,15 +127,32 @@ class KimugPlugin(OIDCPlugin):
         token = credentials.get("token")
         if not token:
             return None
-        payload = self._decode_token(token)
+        try:
+            unverified_payload = jwt.decode(token, options={"verify_signature": False})
+            issuer = unverified_payload.get("iss", "")
+        except InvalidTokenError:
+            return None
+        if issuer.endswith("/realms/sso-apps"):
+            # TODO (?): maybe we should get the access group name from the username
+            access_group = os.environ.get(
+                "SSO_APPS_ACCESS_GROUP", "access_imio-apps-kimug"
+            )
+            if access_group in unverified_payload.get("groups", []):
+                plugin = "oidc_sso_apps"
+            else:
+                return None
+        else:
+            plugin = "oidc"
+        payload = self._decode_token(token, plugin=plugin)
         if payload is None:
             return None
         sub = payload.get("sub")
         if not sub:
             return None
+        self._ensure_user_exists(sub, payload)
         return sub, payload.get("email") or sub
 
-    def _get_jwks_client(self):
+    def _get_jwks_client(self, plugin="oidc"):
         """Return a cached PyJWKClient for the configured Keycloak realm.
 
         Client is rebuilt after ``_JWKS_CLIENT_TTL`` seconds. PyJWKClient
@@ -148,8 +167,20 @@ class KimugPlugin(OIDCPlugin):
             cls._jwks_client is None
             or now - cls._jwks_client_created_at > cls._JWKS_CLIENT_TTL
         ):
-            keycloak_url = os.environ["keycloak_url"].rstrip("/")
-            realm = os.environ["keycloak_realm"]
+            if plugin == "oidc":
+                keycloak_url = os.environ.get(
+                    "keycloak_url", "https://keycloak.127.0.0.1.nip.io/"
+                ).rstrip("/")
+                realm = os.environ.get("keycloak_realm", "plone")
+            elif plugin == "oidc_sso_apps":
+                sso_apps_url = os.environ.get(
+                    "SSO_APPS_URL", "https://keycloak.127.0.0.1.nip.io/"
+                ).rstrip("/")
+                sso_apps_url_parsed = urlparse(sso_apps_url)
+                keycloak_url = (
+                    f"{sso_apps_url_parsed.scheme}://{sso_apps_url_parsed.netloc}"
+                )
+                realm = os.environ.get("SSO_APPS_REALM", "sso-apps")
             jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
             cls._jwks_client = PyJWKClient(
                 jwks_url,
@@ -160,7 +191,7 @@ class KimugPlugin(OIDCPlugin):
             cls._jwks_client_created_at = now
         return cls._jwks_client
 
-    def _decode_token(self, token):
+    def _decode_token(self, token, plugin="oidc"):
         """Decode and fully verify a Keycloak-issued RS256 JWT.
 
         Verifies signature, ``alg``, ``iss``, ``aud``, ``exp``, ``iat``, and
@@ -170,7 +201,10 @@ class KimugPlugin(OIDCPlugin):
         propagating to HTTP 500.
         """
         try:
-            signing_key = self._get_jwks_client().get_signing_key_from_jwt(token)
+            # __import__("ipdb").set_trace()
+            signing_key = self._get_jwks_client(plugin=plugin).get_signing_key_from_jwt(
+                token
+            )
         except PyJWKClientError as exc:
             logger.info("JWKS lookup failed: %s", exc)
             return None
@@ -179,13 +213,24 @@ class KimugPlugin(OIDCPlugin):
             logger.warning("JWKS unreachable: %s", exc)
             return None
 
+        if plugin == "oidc":
+            issuer = os.environ.get("keycloak_issuer")
+            audience = os.environ.get("keycloak_audience", "account")
+        elif plugin == "oidc_sso_apps":
+            sso_apps_realm = os.environ.get("SSO_APPS_REALM", "sso-apps")
+            sso_apps_url = os.environ.get(
+                "SSO_APPS_URL", "https://keycloak.127.0.0.1.nip.io/"
+            ).rstrip("/")
+            sso_apps_url_parsed = urlparse(sso_apps_url)
+            issuer = f"{sso_apps_url_parsed.scheme}://{sso_apps_url_parsed.netloc}/realms/{sso_apps_realm}"
+            audience = os.environ.get("keycloak_audience", "account")
         try:
             return jwt.decode(
                 token,
                 key=signing_key.key,
                 algorithms=["RS256"],
-                audience=os.environ.get("keycloak_audience", "account"),
-                issuer=os.environ.get("keycloak_issuer"),
+                audience=audience,
+                issuer=issuer,
                 options={
                     "require": ["exp", "iat", "sub"],
                     "verify_signature": True,
@@ -198,6 +243,24 @@ class KimugPlugin(OIDCPlugin):
         except InvalidTokenError as exc:
             logger.info("JWT rejected: %s", exc)
             return None
+
+    def _ensure_user_exists(self, userid, payload):
+        if api.user.get(userid=userid) is not None:
+            return
+        try:
+            new_user = self._create_user(userid)
+        except Exception:
+            logger.exception("Could not create local user for %s", userid)
+            return
+        userinfo = {
+            "username": payload["email"],
+            "email": payload["email"],
+            "name": payload["preferred_username"],
+        }
+        try:
+            self._update_user(new_user, userinfo, first_login=True)
+        except Exception as e:
+            logger.error(f"Not able to update user {payload['email']}, {e}")
 
 
 InitializeClass(KimugPlugin)

@@ -29,10 +29,10 @@ class HiddenProfiles:
         ]
 
 
-def _add_plugin(pas, pluginid="oidc"):
+def _add_plugin(pas, pluginid="oidc", title="OIDC"):
     if pluginid in pas.objectIds():
         return pluginid + " already installed."
-    plugin = KimugPlugin(pluginid, title="OIDC")
+    plugin = KimugPlugin(pluginid, title=title)
     pas._setObject(pluginid, plugin)
     plugin = pas[plugin.getId()]  # get plugin acquisition wrapped!
     for info in pas.plugins.listPluginTypeInfo():
@@ -47,7 +47,14 @@ def _add_plugin(pas, pluginid="oidc"):
 
 def post_install(context):
     """Post install script"""
-    _add_plugin(api.portal.get_tool("acl_users"))
+    # Add oidc to acl_users
+    _add_plugin(api.portal.get_tool("acl_users"), pluginid="oidc", title="OIDC")
+    # Add sso-apps to acl_users
+    _add_plugin(
+        api.portal.get_tool("acl_users"),
+        pluginid="oidc_sso_apps",
+        title="OIDC SSO Apps",
+    )
 
     set_oidc_settings(context)
     if varenvs_exist():
