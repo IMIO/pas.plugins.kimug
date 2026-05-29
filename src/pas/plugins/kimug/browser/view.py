@@ -3,6 +3,7 @@ from oic.oic.message import IdToken
 from pas.plugins.kimug.utils import add_keycloak_users_to_plone
 from pas.plugins.kimug.utils import get_keycloak_users
 from pas.plugins.kimug.utils import get_keycloak_users_from_oidc
+from pas.plugins.kimug.utils import get_keycloak_users_from_oidc_sso_apps
 from pas.plugins.kimug.utils import migrate_plone_user_id_to_keycloak_user_id
 from pas.plugins.kimug.utils import set_oidc_settings
 from pas.plugins.oidc import _
@@ -55,6 +56,18 @@ class KeycloakUsersView(BrowserView):
         keycloak_users = get_keycloak_users_from_oidc()
         added_users = add_keycloak_users_to_plone(keycloak_users)
         api.portal.show_message(f"{added_users} Keycloak users imported", self.request)
+        return self.index()
+
+
+class KeycloakSSOAppsUsersView(BrowserView):
+    index = ViewPageTemplateFile("users.pt")
+
+    def __call__(self):
+        keycloak_users = get_keycloak_users_from_oidc_sso_apps()
+        added_users = add_keycloak_users_to_plone(keycloak_users)
+        api.portal.show_message(
+            f"{added_users} Keycloak sso apps users imported", self.request
+        )
         return self.index()
 
 

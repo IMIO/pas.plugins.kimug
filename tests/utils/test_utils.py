@@ -1,10 +1,13 @@
 from pas.plugins.kimug import utils
 from plone import api
+from unittest.mock import MagicMock
 from unittest.mock import patch
 from ZODB.POSException import ConflictError
 from zope.annotation.interfaces import IAnnotations
 
 import os
+import pytest
+import requests
 
 
 class TestUtils:
@@ -130,6 +133,169 @@ class TestUtils:
         utils._set_allowed_groups(oidc)
 
         assert oidc.allowed_groups == ("group.1 is - the first!",)
+
+
+class TestGetKeycloakUsersFromOidcSsoApps:
+    def _configure_plugin(self):
+        plugin = utils.get_plugin("oidc_sso_apps")
+        plugin.issuer = "https://sso.example.com/realms/sso-apps"
+        plugin.client_id = "test-client"
+        plugin.client_secret = "test-secret"
+        return plugin
+
+    def _mock_response(self, data):
+        resp = MagicMock()
+        resp.json.return_value = data
+        resp.raise_for_status.return_value = None
+        return resp
+
+    def test_returns_users(self, portal):
+        """Happy path: users from the access group are returned with correct fields."""
+        self._configure_plugin()
+        groups = [{"id": "grp-1", "name": "access_imio-apps-kimug"}]
+        members = [
+            {
+                "id": "uid-1",
+                "username": "alice",
+                "email": "alice@example.com",
+                "firstName": "Alice",
+                "lastName": "Smith",
+            }
+        ]
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+        ):
+            with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                mock_get.side_effect = [
+                    self._mock_response(groups),
+                    self._mock_response(members),
+                ]
+                result = utils.get_keycloak_users_from_oidc_sso_apps()
+
+        assert result == [
+            {
+                "username": "alice",
+                "email": "alice@example.com",
+                "keycloak_id": "uid-1",
+                "firstName": "Alice",
+                "lastName": "Smith",
+            }
+        ]
+
+    def test_filters_users_without_username_or_email(self, portal):
+        """Users missing username or email are excluded from the result."""
+        self._configure_plugin()
+        groups = [{"id": "grp-1", "name": "access_imio-apps-kimug"}]
+        members = [
+            {"id": "uid-1", "username": "alice", "email": "alice@example.com"},
+            {"id": "uid-2", "username": "", "email": "no-username@example.com"},
+            {"id": "uid-3", "username": "no-email", "email": ""},
+        ]
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+        ):
+            with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                mock_get.side_effect = [
+                    self._mock_response(groups),
+                    self._mock_response(members),
+                ]
+                result = utils.get_keycloak_users_from_oidc_sso_apps()
+
+        assert len(result) == 1
+        assert result[0]["username"] == "alice"
+
+    def test_custom_access_group_env_var(self, portal):
+        """SSO_APPS_ACCESS_GROUP env var overrides the default access group name."""
+        self._configure_plugin()
+        groups = [
+            {"id": "grp-default", "name": "access_imio-apps-kimug"},
+            {"id": "grp-custom", "name": "my-custom-group"},
+        ]
+        members = [
+            {
+                "id": "uid-1",
+                "username": "bob",
+                "email": "bob@example.com",
+                "firstName": "Bob",
+                "lastName": "Jones",
+            }
+        ]
+        with patch.dict(os.environ, {"SSO_APPS_ACCESS_GROUP": "my-custom-group"}):
+            with patch(
+                "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+            ):
+                with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                    mock_get.side_effect = [
+                        self._mock_response(groups),
+                        self._mock_response(members),
+                    ]
+                    result = utils.get_keycloak_users_from_oidc_sso_apps()
+
+        assert len(result) == 1
+        assert result[0]["username"] == "bob"
+        members_url = mock_get.call_args_list[1].kwargs["url"]
+        assert "grp-custom" in members_url
+
+    def test_plugin_not_found_returns_empty_list(self, portal):
+        """If oidc_sso_apps plugin is not found the function returns []."""
+        with patch("pas.plugins.kimug.utils.get_plugin", return_value=None):
+            result = utils.get_keycloak_users_from_oidc_sso_apps()
+        assert result == []
+
+    def test_no_issuer_returns_empty_list(self, portal):
+        """If plugin.issuer is empty the function returns []."""
+        plugin = self._configure_plugin()
+        plugin.issuer = ""
+        result = utils.get_keycloak_users_from_oidc_sso_apps()
+        assert result == []
+
+    def test_invalid_issuer_returns_empty_list(self, portal):
+        """If plugin.issuer cannot be parsed (no scheme/netloc) the function returns []."""
+        plugin = self._configure_plugin()
+        plugin.issuer = "not-a-valid-url"
+        result = utils.get_keycloak_users_from_oidc_sso_apps()
+        assert result == []
+
+    def test_no_access_token_returns_none(self, portal):
+        """If get_client_access_token returns None the function returns None."""
+        self._configure_plugin()
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value=None
+        ):
+            result = utils.get_keycloak_users_from_oidc_sso_apps()
+        assert result is None
+
+    def test_request_exception_on_groups_fetch_propagates(self, portal):
+        """A RequestException on the groups fetch propagates (call is outside try/except)."""
+        self._configure_plugin()
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+        ):
+            with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                mock_get.side_effect = requests.exceptions.RequestException(
+                    "groups error"
+                )
+                with pytest.raises(requests.exceptions.RequestException):
+                    utils.get_keycloak_users_from_oidc_sso_apps()
+
+    def test_request_exception_on_members_fetch_returns_empty_list(self, portal):
+        """A RequestException on the members fetch is caught and [] is returned."""
+        self._configure_plugin()
+        groups = [{"id": "grp-1", "name": "access_imio-apps-kimug"}]
+        mock_members_resp = MagicMock()
+        mock_members_resp.raise_for_status.side_effect = (
+            requests.exceptions.RequestException("members error")
+        )
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+        ):
+            with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                mock_get.side_effect = [
+                    self._mock_response(groups),
+                    mock_members_resp,
+                ]
+                result = utils.get_keycloak_users_from_oidc_sso_apps()
+        assert result == []
 
 
 class TestSetOidcSettings:

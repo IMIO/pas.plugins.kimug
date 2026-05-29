@@ -771,6 +771,79 @@ def get_keycloak_users_from_oidc():
             return []
 
 
+def get_keycloak_users_from_oidc_sso_apps():
+    """Get Keycloak users from SSO apps."""
+    oidc_sso_apps = get_plugin("oidc_sso_apps")
+    if not oidc_sso_apps:
+        logger.error("OIDC SSO Apps plugin not found")
+        return []
+    realm = "sso-apps"
+    issuer = oidc_sso_apps.issuer
+    if not issuer:
+        logger.error("OIDC SSO Apps issuer not set")
+        return []
+    issuer_parsed = urlparse(issuer)
+    if not issuer_parsed.scheme or not issuer_parsed.netloc:
+        logger.error("OIDC SSO Apps issuer is not a valid URL")
+        return []
+
+    keycloak_url = f"{issuer_parsed.scheme}://{issuer_parsed.netloc}/"
+    client_id = oidc_sso_apps.client_id
+    client_secret = oidc_sso_apps.client_secret
+    access_token = get_client_access_token(
+        keycloak_url, realm, client_id, client_secret
+    )
+    if access_token is None:
+        logger.error(
+            "Could not get access token from Keycloak with OIDC settings for sso-apps plugin"
+        )
+        return None
+
+    group_url = f"{keycloak_url}admin/realms/{realm}/groups"
+    group_response = requests.get(
+        url=group_url, headers={"Authorization": f"Bearer {access_token}"}, timeout=30
+    )
+    group_response.raise_for_status()
+
+    groups = group_response.json()
+    access_group = os.environ.get("SSO_APPS_ACCESS_GROUP", "access_imio-apps-kimug")
+    group_id = None
+    for group in groups:
+        if group.get("name") == access_group:
+            group_id = group.get("id")
+            break
+
+    url = f"{keycloak_url}admin/realms/{realm}/groups/{group_id}/members?max=100000"
+    users = []
+    headers = {"Authorization": f"Bearer {access_token}"}
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30)
+        response.raise_for_status()
+        users_data = response.json()
+
+        # Extract username and email from each user
+        for user in users_data:
+            user_info = {
+                "username": user.get("username", ""),
+                "email": user.get("email", ""),
+                "keycloak_id": user.get("id", ""),
+                "firstName": user.get("firstName", ""),
+                "lastName": user.get("lastName", ""),
+            }
+            # Only include users that have both username and email
+            if user_info["username"] and user_info["email"]:
+                users.append(user_info)
+
+        logger.info(f"Retrieved {len(users)} users from Keycloak realm '{realm}'")
+        return users
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching users from Keycloak: {e}")
+        return []
+    except ValueError as e:
+        logger.error(f"Error parsing users response: {e}")
+        return []
+
+
 def add_keycloak_users_to_plone(users):
     """Add Keycloak users to Plone if they do not already exist."""
     oidc = get_plugin("oidc")
