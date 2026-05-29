@@ -611,39 +611,44 @@ def _check_redirect_uris(client_id: str, access_token: str) -> bool:
     return False
 
 
-def check_keycloak_settings() -> bool:
+def check_keycloak_settings(plugin="oidc") -> bool:
     """Check if we can get an access token with the OIDC settings.
     And if the redirect_uris set in Keycloak match the ones set in the OIDC plugin.
     """
 
-    oidc = get_plugin("oidc")
+    oidc = get_plugin(plugin)
     if not oidc:
-        logger.error("OIDC plugin not found")
+        logger.error(f"OIDC plugin {plugin} not found")
         return False
     issuer = oidc.issuer
     if not issuer:
-        logger.error("OIDC issuer not set")
+        logger.error(f"OIDC issuer not set for plugin {plugin}")
         return False
     realm = [item for item in issuer.split("/") if item][-1]
     issuer_parsed = urlparse(issuer)
     if not issuer_parsed.scheme or not issuer_parsed.netloc:
-        logger.error("OIDC issuer is not a valid URL")
+        logger.error(f"OIDC issuer is not a valid URL for plugin {plugin}")
         return False
     keycloak_url = f"{issuer_parsed.scheme}://{issuer_parsed.netloc}/"
     client_id = oidc.client_id
     client_secret = oidc.client_secret
     if not client_id or not client_secret:
-        logger.error("OIDC client_id or client_secret not set")
+        logger.error(f"OIDC client_id or client_secret not set for plugin {plugin}")
         return False
     access_token = get_client_access_token(
         keycloak_url, realm, client_id, client_secret
     )
     if access_token is None:
-        logger.error("Could not get access token from Keycloak with OIDC settings")
+        logger.error(
+            f"Could not get access token from Keycloak with OIDC settings for plugin {plugin}"
+        )
         return False
-    if _check_redirect_uris(client_id, access_token) is False:
-        logger.error("Redirect URIs in Keycloak do not match OIDC settings")
-        return False
+    if oidc.redirect_uris:
+        if _check_redirect_uris(client_id, access_token) is False:
+            logger.error(
+                "Redirect URIs in Keycloak do not match OIDC settings for plugin {plugin}"
+            )
+            return False
     return True
 
 

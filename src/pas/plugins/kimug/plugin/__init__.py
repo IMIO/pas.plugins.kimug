@@ -136,7 +136,13 @@ class KimugPlugin(OIDCPlugin):
         except InvalidTokenError:
             return None
         if issuer.endswith("/realms/sso-apps"):
-            plugin = "oidc_sso_apps"
+            access_group = os.environ.get(
+                "SSO_APPS_ACCESS_GROUP", "access_imio-apps-kimug"
+            )
+            if access_group in unverified_payload.get("groups", []):
+                plugin = "oidc_sso_apps"
+            else:
+                return None
         else:
             plugin = "oidc"
         payload = self._decode_token(token, plugin=plugin)
@@ -163,7 +169,6 @@ class KimugPlugin(OIDCPlugin):
             cls._jwks_client is None
             or now - cls._jwks_client_created_at > cls._JWKS_CLIENT_TTL
         ):
-            # __import__("ipdb").set_trace()
             if plugin == "oidc":
                 keycloak_url = os.environ.get(
                     "keycloak_url", "https://keycloak.127.0.0.1.nip.io/"
