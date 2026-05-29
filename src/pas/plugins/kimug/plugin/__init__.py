@@ -136,6 +136,7 @@ class KimugPlugin(OIDCPlugin):
         except InvalidTokenError:
             return None
         if issuer.endswith("/realms/sso-apps"):
+            # TODO (?): maybe we should get the access group name from the username
             access_group = os.environ.get(
                 "SSO_APPS_ACCESS_GROUP", "access_imio-apps-kimug"
             )

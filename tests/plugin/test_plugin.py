@@ -132,7 +132,11 @@ class TestPlugin:
     def test_authenticate_routes_sso_apps_issuer(self, portal):
         """authenticateCredentials should call _decode_token(plugin='oidc_sso_apps') for sso-apps tokens."""
         token = jwt.encode(
-            {"iss": "https://keycloak.example.com/realms/sso-apps", "sub": "sso-sub"},
+            {
+                "iss": "https://keycloak.example.com/realms/sso-apps",
+                "sub": "sso-sub",
+                "groups": ["access_imio-apps-kimug"],
+            },
             "secret",
             algorithm="HS256",
         )
@@ -143,6 +147,78 @@ class TestPlugin:
         ) as mock_decode:
             plugin.authenticateCredentials({"token": token})
             mock_decode.assert_called_once_with(token, plugin="oidc_sso_apps")
+
+    def test_sso_apps_rejects_token_with_no_groups(self, portal):
+        """authenticateCredentials must return None when the sso-apps token carries no groups claim."""
+        token = jwt.encode(
+            {"iss": "https://keycloak.example.com/realms/sso-apps", "sub": "sso-sub"},
+            "secret",
+            algorithm="HS256",
+        )
+        plugin = portal.acl_users.oidc
+        with patch("pas.plugins.kimug.plugin.KimugPlugin._decode_token") as mock_decode:
+            result = plugin.authenticateCredentials({"token": token})
+        assert result is None
+        mock_decode.assert_not_called()
+
+    def test_sso_apps_rejects_token_missing_access_group(self, portal):
+        """authenticateCredentials must return None when the user is not in the required access group."""
+        token = jwt.encode(
+            {
+                "iss": "https://keycloak.example.com/realms/sso-apps",
+                "sub": "sso-sub",
+                "groups": ["some-other-group"],
+            },
+            "secret",
+            algorithm="HS256",
+        )
+        plugin = portal.acl_users.oidc
+        with patch("pas.plugins.kimug.plugin.KimugPlugin._decode_token") as mock_decode:
+            result = plugin.authenticateCredentials({"token": token})
+        assert result is None
+        mock_decode.assert_not_called()
+
+    def test_sso_apps_accepts_token_with_default_access_group(self, portal):
+        """authenticateCredentials must proceed when the token contains the default access group."""
+        token = jwt.encode(
+            {
+                "iss": "https://keycloak.example.com/realms/sso-apps",
+                "sub": "sso-sub",
+                "groups": ["access_imio-apps-kimug"],
+            },
+            "secret",
+            algorithm="HS256",
+        )
+        plugin = portal.acl_users.oidc
+        with patch(
+            "pas.plugins.kimug.plugin.KimugPlugin._decode_token",
+            return_value={"sub": "sso-sub", "email": "sso@example.com"},
+        ) as mock_decode:
+            plugin.authenticateCredentials({"token": token})
+        mock_decode.assert_called_once_with(token, plugin="oidc_sso_apps")
+
+    def test_sso_apps_accepts_token_with_custom_access_group(self, portal):
+        """authenticateCredentials must honour SSO_APPS_ACCESS_GROUP when set."""
+        token = jwt.encode(
+            {
+                "iss": "https://keycloak.example.com/realms/sso-apps",
+                "sub": "sso-sub",
+                "groups": ["my-custom-group"],
+            },
+            "secret",
+            algorithm="HS256",
+        )
+        plugin = portal.acl_users.oidc
+        os.environ["SSO_APPS_ACCESS_GROUP"] = "my-custom-group"
+        try:
+            with patch(
+                "pas.plugins.kimug.plugin.KimugPlugin._decode_token",
+                return_value={"sub": "sso-sub", "email": "sso@example.com"},
+            ) as mock_decode:
+                plugin.authenticateCredentials({"token": token})
+            mock_decode.assert_called_once_with(token, plugin="oidc_sso_apps")
+        finally:
+            del os.environ["SSO_APPS_ACCESS_GROUP"]
 
     def test_groups_roles(self, profile_last_version):
         """Test latest version of default profile."""
