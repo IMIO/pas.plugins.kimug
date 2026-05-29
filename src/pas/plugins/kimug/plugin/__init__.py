@@ -251,6 +251,7 @@ class KimugPlugin(OIDCPlugin):
             new_user = self._create_user(userid)
         except Exception:
             logger.exception("Could not create local user for %s", userid)
+            return
         userinfo = {
             "username": payload["email"],
             "email": payload["email"],
