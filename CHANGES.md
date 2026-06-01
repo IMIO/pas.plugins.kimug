@@ -29,11 +29,6 @@
   `account`).
   [bsuttor] kimug-jwt-verify
 
-## 1.4.4 (unreleased)
-
-
-- Nothing changed yet.
-
 
 ## 1.4.3 (2026-03-24)
 
