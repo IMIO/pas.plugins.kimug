@@ -182,8 +182,8 @@ class TestGetKeycloakUsersFromOidcSsoApps:
             }
         ]
 
-    def test_filters_users_without_username_or_email(self, portal):
-        """Users missing username or email are excluded from the result."""
+    def test_filters_users_without_username(self, portal):
+        """Users missing username are excluded; users missing email or names get defaults."""
         self._configure_plugin()
         groups = [{"id": "grp-1", "name": "access_imio-apps-kimug"}]
         members = [
@@ -201,8 +201,91 @@ class TestGetKeycloakUsersFromOidcSsoApps:
                 ]
                 result = utils.get_keycloak_users_from_oidc_sso_apps()
 
+        assert len(result) == 2
+        usernames = [u["username"] for u in result]
+        assert "alice" in usernames
+        assert "no-email" in usernames
+        assert "" not in usernames
+
+    def test_missing_email_is_filled_with_kimug_domain(self, portal):
+        """A user with no email gets email auto-filled as {username}@kimug.be."""
+        self._configure_plugin()
+        groups = [{"id": "grp-1", "name": "access_imio-apps-kimug"}]
+        members = [
+            {
+                "id": "uid-1",
+                "username": "bob",
+                "email": "",
+                "firstName": "Bob",
+                "lastName": "Smith",
+            }
+        ]
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+        ):
+            with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                mock_get.side_effect = [
+                    self._mock_response(groups),
+                    self._mock_response(members),
+                ]
+                result = utils.get_keycloak_users_from_oidc_sso_apps()
+
         assert len(result) == 1
-        assert result[0]["username"] == "alice"
+        assert result[0]["email"] == "bob@kimug.be"
+
+    def test_missing_names_are_filled_with_username_and_sso_apps(self, portal):
+        """A user with no firstName and no lastName gets them filled from username / 'sso-apps'."""
+        self._configure_plugin()
+        groups = [{"id": "grp-1", "name": "access_imio-apps-kimug"}]
+        members = [
+            {
+                "id": "uid-1",
+                "username": "carol",
+                "email": "carol@example.com",
+                "firstName": "",
+                "lastName": "",
+            }
+        ]
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+        ):
+            with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                mock_get.side_effect = [
+                    self._mock_response(groups),
+                    self._mock_response(members),
+                ]
+                result = utils.get_keycloak_users_from_oidc_sso_apps()
+
+        assert len(result) == 1
+        assert result[0]["firstName"] == "carol"
+        assert result[0]["lastName"] == "sso-apps"
+
+    def test_partial_name_is_not_overridden(self, portal):
+        """A user with only one name field missing is not overridden (both must be absent)."""
+        self._configure_plugin()
+        groups = [{"id": "grp-1", "name": "access_imio-apps-kimug"}]
+        members = [
+            {
+                "id": "uid-1",
+                "username": "dave",
+                "email": "dave@example.com",
+                "firstName": "Dave",
+                "lastName": "",
+            }
+        ]
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+        ):
+            with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                mock_get.side_effect = [
+                    self._mock_response(groups),
+                    self._mock_response(members),
+                ]
+                result = utils.get_keycloak_users_from_oidc_sso_apps()
+
+        assert len(result) == 1
+        assert result[0]["firstName"] == "Dave"
+        assert result[0]["lastName"] == ""
 
     def test_custom_access_group_env_var(self, portal):
         """SSO_APPS_ACCESS_GROUP env var overrides the default access group name."""

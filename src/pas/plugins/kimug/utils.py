@@ -832,8 +832,12 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
                 "firstName": user.get("firstName", ""),
                 "lastName": user.get("lastName", ""),
             }
-            # Only include users that have both username and email
-            if user_info["username"] and user_info["email"]:
+            if user_info["username"]:
+                if not user_info["email"]:
+                    user_info["email"] = f"{user_info['username']}@kimug.be"
+                if not user_info["firstName"] and not user_info["lastName"]:
+                    user_info["firstName"] = user_info["username"]
+                    user_info["lastName"] = "sso-apps"
                 users.append(user_info)
 
         logger.info(f"Retrieved {len(users)} users from Keycloak realm '{realm}'")
