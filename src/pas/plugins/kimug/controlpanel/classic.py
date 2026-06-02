@@ -94,12 +94,20 @@ class KimugSettingsControlPanel(controlpanel.ControlPanelFormWrapper):
 
     def checkSettings(self, plugin="oidc"):
         if not check_keycloak_settings(plugin):
-            return '<div class="alert alert-danger" role="alert">{}</div>'.format(
-                _(
-                    "There is a problem with the Keycloak settings. "
-                    "Please check the Issuer URL, client ID, client secret and redirect_uri"
+            if plugin == "oidc":
+                return '<div class="alert alert-danger" role="alert">{}</div>'.format(
+                    _(
+                        "There is a problem with the Keycloak settings for SSO (plugin oidc)."
+                        "Please check the Issuer URL, client ID, client secret and redirect uri"
+                    )
                 )
-            )
+            elif plugin == "oidc_sso_apps":
+                return '<div class="alert alert-danger" role="alert">{}</div>'.format(
+                    _(
+                        "There is a problem with the Keycloak settings for SSO Apps (plugin oidc_sso_apps). "
+                        "Please check the Issuer URL, client ID and client secret"
+                    )
+                )
         elif plugin == "oidc":
             return '<div class="alert alert-success" role="alert">{}</div>'.format(
                 _(
