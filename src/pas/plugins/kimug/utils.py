@@ -771,7 +771,7 @@ def get_keycloak_users_from_oidc():
             return []
 
 
-def get_keycloak_users_from_oidc_sso_apps():
+def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
     """Get Keycloak users from SSO apps."""
     oidc_sso_apps = get_plugin("oidc_sso_apps")
     if not oidc_sso_apps:
@@ -797,11 +797,13 @@ def get_keycloak_users_from_oidc_sso_apps():
         logger.error(
             "Could not get access token from Keycloak with OIDC settings for sso-apps plugin"
         )
-        return None
+        return []
 
     group_url = f"{keycloak_url}admin/realms/{realm}/groups"
     group_response = requests.get(
-        url=group_url, headers={"Authorization": f"Bearer {access_token}"}, timeout=30
+        url=group_url,
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=timeout,
     )
     group_response.raise_for_status()
 
@@ -817,7 +819,7 @@ def get_keycloak_users_from_oidc_sso_apps():
     users = []
     headers = {"Authorization": f"Bearer {access_token}"}
     try:
-        response = requests.get(url=url, headers=headers, timeout=30)
+        response = requests.get(url=url, headers=headers, timeout=timeout)
         response.raise_for_status()
         users_data = response.json()
 

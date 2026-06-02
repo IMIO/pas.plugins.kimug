@@ -22,4 +22,12 @@
         />
   </genericsetup:upgradeSteps>
 
+  <genericsetup:upgradeStep
+      title="Add oidc_sso_apps plugin"
+      profile="pas.plugins.kimug:default"
+      source="1002"
+      destination="1003"
+      handler=".add_oidc_sso_apps_plugin"
+      />
+
 </configure>

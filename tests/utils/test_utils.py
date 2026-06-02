@@ -256,14 +256,14 @@ class TestGetKeycloakUsersFromOidcSsoApps:
         result = utils.get_keycloak_users_from_oidc_sso_apps()
         assert result == []
 
-    def test_no_access_token_returns_none(self, portal):
-        """If get_client_access_token returns None the function returns None."""
+    def test_no_access_token_returns_empty_list(self, portal):
+        """If get_client_access_token returns None the function returns []."""
         self._configure_plugin()
         with patch(
             "pas.plugins.kimug.utils.get_client_access_token", return_value=None
         ):
             result = utils.get_keycloak_users_from_oidc_sso_apps()
-        assert result is None
+        assert result == []
 
     def test_request_exception_on_groups_fetch_propagates(self, portal):
         """A RequestException on the groups fetch propagates (call is outside try/except)."""
