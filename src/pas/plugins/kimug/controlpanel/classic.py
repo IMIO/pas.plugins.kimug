@@ -97,7 +97,7 @@ class KimugSettingsControlPanel(controlpanel.ControlPanelFormWrapper):
             if plugin == "oidc":
                 return '<div class="alert alert-danger" role="alert">{}</div>'.format(
                     _(
-                        "There is a problem with the Keycloak settings for SSO (plugin oidc)."
+                        "There is a problem with the Keycloak settings for SSO (plugin oidc). "
                         "Please check the Issuer URL, client ID, client secret and redirect uri"
                     )
                 )
