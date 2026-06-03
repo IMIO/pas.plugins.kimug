@@ -1,8 +1,9 @@
-## 1.5.3 (unreleased)
+## 1.5.3 (2026-06-03)
 
 
-- Nothing changed yet.
+### New features:
 
+- Add ``is_log_active`` utility function to check if plugin logging is enabled via the registry. [remdub] is-log-active
 
 ## 1.5.2 (2026-06-02)
 
