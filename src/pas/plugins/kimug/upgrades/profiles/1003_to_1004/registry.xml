@@ -5,8 +5,9 @@
 
   <record name="pas.plugins.kimug.log">
     <field type="plone.registry.field.Bool">
-      <title>Enable debug logging</title>
-      <default>False</default>
+      <title>Logger mode activated</title>
+      <description>Enable debug logging for pas.plugins.kimug</description>
+      <required>False</required>
     </field>
     <value>False</value>
   </record>

@@ -4,6 +4,7 @@ from jwt import InvalidTokenError
 from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientError
 from pas.plugins.kimug.interfaces import IKimugPlugin
+from pas.plugins.kimug.utils import is_log_active
 from pas.plugins.oidc.plugins import OIDCPlugin
 from plone import api
 from Products.PageTemplates.PageTemplateFile import PageTemplateFile
@@ -87,13 +88,22 @@ class KimugPlugin(OIDCPlugin):
         app_id = os.environ.get("application_id", "iA.Smartweb")
         admin_group = f"{app_id}-admin"
         roles = ["Member"]
+        if is_log_active():
+            logger.info(
+                f"getRolesForPrincipal: user={user.getId()}, app_id={app_id}, "
+                f"admin_group={admin_group}, groups={user.getGroups()}"
+            )
         if (
             app_id
             and admin_group in user.getGroups()
             and user.getProperty("email").endswith("@imio.be")
         ):
             roles.append("Manager")
+            if is_log_active():
+                logger.info(f"getRolesForPrincipal: assigned roles={tuple(roles)}")
             return tuple(roles)
+        if is_log_active():
+            logger.info(f"getRolesForPrincipal: assigned roles={tuple(roles)}")
         return tuple(roles)
 
     @security.private
@@ -112,6 +122,8 @@ class KimugPlugin(OIDCPlugin):
             return None
         if auth[:7].lower() == "bearer ":
             creds["token"] = auth.split()[-1]
+            if is_log_active():
+                logger.info("Bearer token found in Authorization header")
         else:
             return None
         return creds
@@ -132,23 +144,45 @@ class KimugPlugin(OIDCPlugin):
             issuer = unverified_payload.get("iss", "")
         except InvalidTokenError:
             return None
+        if is_log_active():
+            logger.info(f"authenticateCredentials: token issuer={issuer}")
         if issuer.endswith("/realms/sso-apps"):
             # TODO (?): maybe we should get the access group name from the username
             access_group = os.environ.get(
                 "SSO_APPS_ACCESS_GROUP", "access_imio-apps-kimug"
             )
-            if access_group in unverified_payload.get("groups", []):
+            groups = unverified_payload.get("groups", [])
+            if is_log_active():
+                logger.info(
+                    f"authenticateCredentials: sso-apps issuer detected, "
+                    f"checking access_group='{access_group}', user groups={groups}"
+                )
+            if access_group in groups:
                 plugin = "oidc_sso_apps"
             else:
+                if is_log_active():
+                    logger.info(
+                        f"authenticateCredentials: access denied — "
+                        f"'{access_group}' not in user groups"
+                    )
                 return None
         else:
             plugin = "oidc"
+        if is_log_active():
+            logger.info(f"authenticateCredentials: routing to plugin='{plugin}'")
         payload = self._decode_token(token, plugin=plugin)
         if payload is None:
             return None
         sub = payload.get("sub")
         if not sub:
+            if is_log_active():
+                logger.info("authenticateCredentials: token has no 'sub' claim")
             return None
+        if is_log_active():
+            logger.info(
+                f"authenticateCredentials: token valid, "
+                f"sub={sub}, email={payload.get('email')}"
+            )
         self._ensure_user_exists(sub, payload)
         return sub, payload.get("email") or sub
 
@@ -182,6 +216,8 @@ class KimugPlugin(OIDCPlugin):
                 )
                 realm = os.environ.get("SSO_APPS_REALM", "sso-apps")
             jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
+            if is_log_active():
+                logger.info(f"_get_jwks_client: rebuilding JWKS client for {jwks_url}")
             cls._jwks_client = PyJWKClient(
                 jwks_url,
                 cache_keys=True,
@@ -189,6 +225,11 @@ class KimugPlugin(OIDCPlugin):
                 timeout=5,
             )
             cls._jwks_client_created_at = now
+        elif is_log_active():
+            age = now - cls._jwks_client_created_at
+            logger.info(
+                f"_get_jwks_client: reusing cached JWKS client (age={age:.0f}s)"
+            )
         return cls._jwks_client
 
     def _decode_token(self, token, plugin="oidc"):
@@ -224,8 +265,12 @@ class KimugPlugin(OIDCPlugin):
             sso_apps_url_parsed = urlparse(sso_apps_url)
             issuer = f"{sso_apps_url_parsed.scheme}://{sso_apps_url_parsed.netloc}/realms/{sso_apps_realm}"
             audience = os.environ.get("keycloak_audience", "account")
+        if is_log_active():
+            logger.info(
+                f"_decode_token: (plugin {plugin}) verifying token with issuer='{issuer}', audience='{audience}'"
+            )
         try:
-            return jwt.decode(
+            payload = jwt.decode(
                 token,
                 key=signing_key.key,
                 algorithms=["RS256"],
@@ -240,13 +285,22 @@ class KimugPlugin(OIDCPlugin):
                     "verify_iss": True,
                 },
             )
+            if is_log_active():
+                logger.info("_decode_token: token verification successful")
+            return payload
         except InvalidTokenError as exc:
             logger.info("JWT rejected: %s", exc)
             return None
 
     def _ensure_user_exists(self, userid, payload):
         if api.user.get(userid=userid) is not None:
+            if is_log_active():
+                logger.info(
+                    f"_ensure_user_exists: user '{userid}' already exists, skipping creation"
+                )
             return
+        if is_log_active():
+            logger.info(f"_ensure_user_exists: creating new user '{userid}'")
         try:
             new_user = self._create_user(userid)
         except Exception:
@@ -257,8 +311,16 @@ class KimugPlugin(OIDCPlugin):
             "email": payload["email"],
             "name": payload["preferred_username"],
         }
+        if is_log_active():
+            logger.info(
+                f"_ensure_user_exists: updating user '{userid}' with userinfo={userinfo}"
+            )
         try:
             self._update_user(new_user, userinfo, first_login=True)
+            if is_log_active():
+                logger.info(
+                    f"_ensure_user_exists: user '{userid}' created and updated successfully"
+                )
         except Exception as e:
             logger.error(f"Not able to update user {payload['email']}, {e}")
 

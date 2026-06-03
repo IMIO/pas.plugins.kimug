@@ -17,6 +17,10 @@ import transaction
 logger = logging.getLogger("pas.plugins.kimug.utils")
 
 
+def is_log_active():
+    return api.portal.get_registry_record("pas.plugins.kimug.log", default=False)
+
+
 def get_redirect_uri() -> tuple[str, ...]:
     """Get the main redirect_uri from environment variables."""
     website_hostname = os.environ.get("WEBSITE_HOSTNAME")
