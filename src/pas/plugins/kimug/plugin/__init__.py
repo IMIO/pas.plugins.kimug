@@ -19,6 +19,7 @@ import time
 
 
 logger = logging.getLogger("pas.plugins.kimug")
+logger.setLevel(logging.INFO)
 
 
 def manage_addKimugPlugin(context, id="oidc", title="", RESPONSE=None, **kw):

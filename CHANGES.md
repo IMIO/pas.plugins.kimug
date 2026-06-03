@@ -1,7 +1,10 @@
-## 1.5.4 (unreleased)
+## 1.5.4 (2026-06-04)
 
 
-- Nothing changed yet.
+### New features:
+
+- Set log level to info for pas.plugins.kimug logger
+  [remdub]
 
 
 ## 1.5.3 (2026-06-03)
