@@ -3,6 +3,14 @@
     xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
     >
 
+  <genericsetup:registerProfile
+      name="upgrade_1003_to_1004"
+      title="Upgrade core from 1003 to 1004"
+      description="Add pas.plugins.kimug.log debug logging registry record"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      directory="profiles/1003_to_1004"
+      />
+
   <genericsetup:upgradeStep
       title="Remove authentic users"
       profile="pas.plugins.kimug:default"
@@ -29,5 +37,16 @@
       destination="1003"
       handler=".add_oidc_sso_apps_plugin"
       />
+
+  <genericsetup:upgradeSteps
+      profile="pas.plugins.kimug:default"
+      source="1003"
+      destination="1004"
+      >
+    <genericsetup:upgradeDepends
+        title="Add pas.plugins.kimug.log debug logging registry record"
+        import_profile="pas.plugins.kimug.upgrades:upgrade_1003_to_1004"
+        />
+  </genericsetup:upgradeSteps>
 
 </configure>

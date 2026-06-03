@@ -1,4 +1,5 @@
 from pas.plugins.kimug import utils
+from pas.plugins.kimug.utils import is_log_active
 from plone import api
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -411,3 +412,15 @@ class TestSetOidcSettings:
         assert plugin.client_id == "test-client"
         assert plugin.client_secret == "test-secret"
         assert plugin.issuer == "https://sso.example.com/realms/sso-apps"
+
+
+class TestIsLogActive:
+    def test_is_log_active_default_false(self, portal):
+        """is_log_active returns False when registry record is set to False (default)."""
+        assert is_log_active() is False
+
+    def test_is_log_active_true(self, portal):
+        """is_log_active returns True when registry record is set to True."""
+        api.portal.set_registry_record("pas.plugins.kimug.log", True)
+        assert is_log_active() is True
+        api.portal.set_registry_record("pas.plugins.kimug.log", False)
