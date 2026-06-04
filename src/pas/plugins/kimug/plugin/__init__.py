@@ -335,7 +335,13 @@ class KimugPlugin(OIDCPlugin):
                     f"_ensure_user_exists: user '{userid}' created and updated successfully"
                 )
         except Exception as e:
-            logger.error(f"Not able to update user {payload['email']}, {e}")
+            logger.error(
+                "Not able to update user %s (userid=%s, userinfo=%s): %s",
+                payload.get("email") or userinfo.get("email"),
+                userid,
+                userinfo,
+                e,
+            )
 
 
 InitializeClass(KimugPlugin)
