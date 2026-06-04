@@ -93,6 +93,49 @@ class TestPlugin:
                 "boom-user", {"email": "x@x.com", "preferred_username": "x"}
             )
 
+    def test_ensure_user_exists_fills_email_from_username(self, portal):
+        """_ensure_user_exists should default email to {username}@kimug.be when email is absent."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            plugin._ensure_user_exists("uid-no-email", {"username": "ssouser"})
+            user = api.user.get(userid="uid-no-email")
+        assert user is not None
+        assert user.getProperty("email") == "ssouser@kimug.be"
+
+    def test_ensure_user_exists_fills_names_from_username(self, portal):
+        """_ensure_user_exists should set firstName=username, lastName='sso-apps' when both are absent."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            with patch.object(plugin, "_update_user") as mock_update:
+                plugin._ensure_user_exists("uid-no-names", {"username": "ssouser"})
+                userinfo_arg = mock_update.call_args[0][1]
+        assert userinfo_arg["firstName"] == "ssouser"
+        assert userinfo_arg["lastName"] == "sso-apps"
+
+    def test_ensure_user_exists_no_default_when_username_empty(self, portal):
+        """_ensure_user_exists must not apply any defaults when username is empty."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            with patch.object(plugin, "_update_user") as mock_update:
+                plugin._ensure_user_exists("uid-empty-username", {"username": ""})
+                userinfo_arg = mock_update.call_args[0][1]
+        assert userinfo_arg["email"] == ""
+        assert userinfo_arg["firstName"] == ""
+        assert userinfo_arg["lastName"] == ""
+
+    def test_ensure_user_exists_partial_name_not_overridden(self, portal):
+        """_ensure_user_exists must not touch names when at least one of firstName/lastName is set."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            with patch.object(plugin, "_update_user") as mock_update:
+                plugin._ensure_user_exists(
+                    "uid-partial-name",
+                    {"username": "ssouser", "firstName": "Alice", "lastName": ""},
+                )
+                userinfo_arg = mock_update.call_args[0][1]
+        assert userinfo_arg["firstName"] == "Alice"
+        assert userinfo_arg["lastName"] == ""
+
     def test_authenticate_creates_user_on_first_login(
         self, portal, keycloak_service, keycloak_issuer
     ):
