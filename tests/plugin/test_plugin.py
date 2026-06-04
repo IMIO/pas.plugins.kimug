@@ -167,8 +167,9 @@ class TestPlugin:
         assert result is not None
         assert user is not None, "User should be auto-created after first JWT auth"
 
-    def test_authenticate_routes_sso_apps_issuer(self, portal):
+    def test_authenticate_routes_sso_apps_issuer(self, portal, monkeypatch):
         """authenticateCredentials should call _decode_token(plugin='oidc_sso_apps') for sso-apps tokens."""
+        monkeypatch.delenv("SSO_APPS_ACCESS_GROUP", raising=False)
         token = jwt.encode(
             {
                 "iss": "https://keycloak.example.com/realms/sso-apps",
@@ -220,8 +221,11 @@ class TestPlugin:
         assert result is None
         mock_decode.assert_not_called()
 
-    def test_sso_apps_accepts_token_with_default_access_group(self, portal):
+    def test_sso_apps_accepts_token_with_default_access_group(
+        self, portal, monkeypatch
+    ):
         """authenticateCredentials must proceed when the token contains the default access group."""
+        monkeypatch.delenv("SSO_APPS_ACCESS_GROUP", raising=False)
         token = jwt.encode(
             {
                 "iss": "https://keycloak.example.com/realms/sso-apps",
