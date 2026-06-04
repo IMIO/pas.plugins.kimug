@@ -1,5 +1,6 @@
 from oic.oic.message import OpenIDSchema
 from plone import api
+from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import jwt
@@ -91,6 +92,49 @@ class TestPlugin:
             plugin._ensure_user_exists(
                 "boom-user", {"email": "x@x.com", "preferred_username": "x"}
             )
+
+    def test_ensure_user_exists_fills_email_from_username(self, portal):
+        """_ensure_user_exists should default email to {username}@kimug.be when email is absent."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            plugin._ensure_user_exists("uid-no-email", {"username": "ssouser"})
+            user = api.user.get(userid="uid-no-email")
+        assert user is not None
+        assert user.getProperty("email") == "ssouser@kimug.be"
+
+    def test_ensure_user_exists_fills_names_from_username(self, portal):
+        """_ensure_user_exists should set firstName=username, lastName='sso-apps' when both are absent."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            with patch.object(plugin, "_update_user") as mock_update:
+                plugin._ensure_user_exists("uid-no-names", {"username": "ssouser"})
+                userinfo_arg = mock_update.call_args[0][1]
+        assert userinfo_arg["firstName"] == "ssouser"
+        assert userinfo_arg["lastName"] == "sso-apps"
+
+    def test_ensure_user_exists_no_default_when_username_empty(self, portal):
+        """_ensure_user_exists must not apply any defaults when username is empty."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            with patch.object(plugin, "_update_user") as mock_update:
+                plugin._ensure_user_exists("uid-empty-username", {"username": ""})
+                userinfo_arg = mock_update.call_args[0][1]
+        assert userinfo_arg["email"] == ""
+        assert userinfo_arg["firstName"] == ""
+        assert userinfo_arg["lastName"] == ""
+
+    def test_ensure_user_exists_partial_name_not_overridden(self, portal):
+        """_ensure_user_exists must not touch names when at least one of firstName/lastName is set."""
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            with patch.object(plugin, "_update_user") as mock_update:
+                plugin._ensure_user_exists(
+                    "uid-partial-name",
+                    {"username": "ssouser", "firstName": "Alice", "lastName": ""},
+                )
+                userinfo_arg = mock_update.call_args[0][1]
+        assert userinfo_arg["firstName"] == "Alice"
+        assert userinfo_arg["lastName"] == ""
 
     def test_authenticate_creates_user_on_first_login(
         self, portal, keycloak_service, keycloak_issuer
@@ -250,3 +294,47 @@ class TestPlugin:
             "Member",
         )  # https://github.com/IMIO/pas.plugins.kimug/commit/966d16cabd44379e12cfd580bff80e58a72f98bb
         del os.environ["application_id"]
+
+    def test_decode_token_sso_apps_audience_default(self, portal, monkeypatch):
+        """_decode_token uses 'imio-apps-plone' when neither SSO_APPS_AUDIENCE nor SSO_APPS_CLIENT_ID is set."""
+        monkeypatch.delenv("SSO_APPS_AUDIENCE", raising=False)
+        monkeypatch.delenv("SSO_APPS_CLIENT_ID", raising=False)
+        plugin = portal.acl_users.oidc
+        mock_key = MagicMock()
+        mock_key.key = "key"
+        with patch.object(plugin, "_get_jwks_client") as mock_client, patch(
+            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+        ) as mock_decode:
+            mock_client.return_value.get_signing_key_from_jwt.return_value = mock_key
+            plugin._decode_token("fake.token", plugin="oidc_sso_apps")
+        assert mock_decode.call_args.kwargs["audience"] == "imio-apps-plone"
+
+    def test_decode_token_sso_apps_audience_from_client_id(self, portal, monkeypatch):
+        """_decode_token falls back to SSO_APPS_CLIENT_ID when SSO_APPS_AUDIENCE is not set."""
+        monkeypatch.delenv("SSO_APPS_AUDIENCE", raising=False)
+        monkeypatch.setenv("SSO_APPS_CLIENT_ID", "my-client")
+        plugin = portal.acl_users.oidc
+        mock_key = MagicMock()
+        mock_key.key = "key"
+        with patch.object(plugin, "_get_jwks_client") as mock_client, patch(
+            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+        ) as mock_decode:
+            mock_client.return_value.get_signing_key_from_jwt.return_value = mock_key
+            plugin._decode_token("fake.token", plugin="oidc_sso_apps")
+        assert mock_decode.call_args.kwargs["audience"] == "my-client"
+
+    def test_decode_token_sso_apps_audience_env_takes_priority(
+        self, portal, monkeypatch
+    ):
+        """SSO_APPS_AUDIENCE takes priority over SSO_APPS_CLIENT_ID."""
+        monkeypatch.setenv("SSO_APPS_AUDIENCE", "explicit-audience")
+        monkeypatch.setenv("SSO_APPS_CLIENT_ID", "client-id")
+        plugin = portal.acl_users.oidc
+        mock_key = MagicMock()
+        mock_key.key = "key"
+        with patch.object(plugin, "_get_jwks_client") as mock_client, patch(
+            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+        ) as mock_decode:
+            mock_client.return_value.get_signing_key_from_jwt.return_value = mock_key
+            plugin._decode_token("fake.token", plugin="oidc_sso_apps")
+        assert mock_decode.call_args.kwargs["audience"] == "explicit-audience"

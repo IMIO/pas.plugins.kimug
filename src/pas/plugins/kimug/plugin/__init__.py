@@ -265,7 +265,10 @@ class KimugPlugin(OIDCPlugin):
             ).rstrip("/")
             sso_apps_url_parsed = urlparse(sso_apps_url)
             issuer = f"{sso_apps_url_parsed.scheme}://{sso_apps_url_parsed.netloc}/realms/{sso_apps_realm}"
-            audience = os.environ.get("keycloak_audience", "account")
+            audience = os.environ.get(
+                "SSO_APPS_AUDIENCE",
+                os.environ.get("SSO_APPS_CLIENT_ID", "imio-apps-plone"),
+            )
         if is_log_active():
             logger.info(
                 f"_decode_token: (plugin {plugin}) verifying token with issuer='{issuer}', audience='{audience}'"
@@ -308,10 +311,19 @@ class KimugPlugin(OIDCPlugin):
             logger.exception("Could not create local user for %s", userid)
             return
         userinfo = {
-            "username": payload["email"],
-            "email": payload["email"],
-            "name": payload["preferred_username"],
+            "username": payload.get("username", ""),
+            "email": payload.get("email", ""),
+            "keycloak_id": payload.get("id", ""),
+            "firstName": payload.get("firstName", ""),
+            "lastName": payload.get("lastName", ""),
         }
+        if userinfo["username"]:
+            if not userinfo["email"]:
+                userinfo["email"] = f"{userinfo['username']}@kimug.be"
+            if not userinfo["firstName"] and not userinfo["lastName"]:
+                userinfo["firstName"] = userinfo["username"]
+                userinfo["lastName"] = "sso-apps"
+
         if is_log_active():
             logger.info(
                 f"_ensure_user_exists: updating user '{userid}' with userinfo={userinfo}"
@@ -323,7 +335,13 @@ class KimugPlugin(OIDCPlugin):
                     f"_ensure_user_exists: user '{userid}' created and updated successfully"
                 )
         except Exception as e:
-            logger.error(f"Not able to update user {payload['email']}, {e}")
+            logger.error(
+                "Not able to update user %s (userid=%s, userinfo=%s): %s",
+                payload.get("email") or userinfo.get("email"),
+                userid,
+                userinfo,
+                e,
+            )
 
 
 InitializeClass(KimugPlugin)
