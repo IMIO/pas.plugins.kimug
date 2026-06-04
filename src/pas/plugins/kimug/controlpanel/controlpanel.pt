@@ -18,45 +18,106 @@
                 i18n:translate=""
             >Kimug controlpanel</h1>
 
-            <div class="mb-3">
-              <h2 i18n:translate="">Actions</h2>
-              <a class="btn btn-primary"
-                 tal:attributes="
-                   href string:${context/absolute_url}/@@set_oidc_settings?_authenticator=${context/@@authenticator/token};
-                 "
-              >
-                <span i18n:translate="">Update OIDC settings from environment variables</span>
-              </a>
-              <a class="btn btn-secondary ml-2"
-                 tal:attributes="
-                   href string:${context/absolute_url}/@@keycloak_users?_authenticator=${context/@@authenticator/token};
-                 "
-              >
-                <span i18n:translate="">Sync users with Keycloak</span>
-              </a>
-              <a class="btn btn-secondary ml-2"
-                 tal:attributes="
-                   href string:${context/absolute_url}/@@keycloak_sso_apps_users?_authenticator=${context/@@authenticator/token};
-                 "
-              >
-                <span i18n:translate="">Sync users with Keycloak sso apps</span>
-              </a>
+            <div class="card mb-3">
+              <div class="card-body">
+                <div class="alert alert-warning"
+                     role="alert"
+                >
+                  <strong i18n:translate="">Warning:</strong>
+                  <span i18n:translate="">
+              Kimug settings are set with environment variables. Changes made in this controlpanel may not persist after the server is restarted.
+                  </span>
+                </div>
+                <a class="btn btn-primary"
+                   tal:attributes="
+                     href string:${context/absolute_url}/@@set_oidc_settings?_authenticator=${context/@@authenticator/token};
+                   "
+                >
+                  <span i18n:translate="">Update OIDC settings from environment variables now !</span>
+                </a>
+                <a tal:define="
+                     debug view/debug_mode;
+                   "
+                   tal:attributes="
+                     class python: ('ml-2 btn btn-warning' if debug else 'ml-2 btn btn-outline-secondary');
+                     href string:${context/absolute_url}/@@toggle_debug_mode?_authenticator=${context/@@authenticator/token};
+                   "
+                >
+                  <span tal:condition="not:debug"
+                        i18n:translate=""
+                  >Enable debug logging (currently disabled)</span>
+                  <span tal:condition="debug"
+                        i18n:translate=""
+                  >Disable debug logging (currently enabled)</span>
+                </a>
+              </div>
             </div>
 
             <div>
               <h2 i18n:translate="">Current OIDC Settings</h2>
             </div>
-            <div tal:replace="structure view/checkSettings"></div>
-            <div tal:replace="structure python:view.checkSettings(plugin='oidc_sso_apps')"></div>
-            <div class="alert alert-warning"
-                 role="alert"
-            >
-              <strong i18n:translate="">Warning:</strong>
-              <span i18n:translate="">
-              Kimug settings are set with environment variables. Changes made here may not persist after the server is restarted.
-              </span>
+
+            <div class="card mb-4 border-primary">
+              <div class="card-header bg-primary text-white">
+                <h2 class="m-0"
+                    i18n:translate=""
+                >SSO login &mdash; plugin : oidc
+                </h2>
+              </div>
+              <div class="card-body">
+                <h3 class="h6 text-uppercase text-muted"
+                    i18n:translate=""
+                >Health check</h3>
+                <div tal:replace="structure view/checkSettings"></div>
+
+                <h3 class="h6 text-uppercase text-muted"
+                    i18n:translate=""
+                >Actions</h3>
+                <a class="btn btn-secondary mb-3"
+                   tal:attributes="
+                     href string:${context/absolute_url}/@@keycloak_users?_authenticator=${context/@@authenticator/token};
+                   "
+                >
+                  <span i18n:translate="">Add users from Keycloak in Plone</span>
+                </a>
+
+                <h3 class="h6 text-uppercase text-muted"
+                    i18n:translate=""
+                >Settings</h3>
+
+                <div tal:replace="structure view/contents"></div>
+              </div>
             </div>
-            <div tal:replace="structure view/contents"></div>
+
+            <div class="card mb-4 border-info">
+              <div class="card-header bg-info text-white">
+                <h2 class="m-0"
+                    i18n:translate=""
+                >SSO Apps (token validation) &mdash; plugin : oidc_sso_apps
+                </h2>
+              </div>
+              <div class="card-body">
+                <h3 class="h6 text-uppercase text-muted"
+                    i18n:translate=""
+                >Health check</h3>
+                <div tal:replace="structure python:view.checkSettings(plugin='oidc_sso_apps')"></div>
+
+                <h3 class="h6 text-uppercase text-muted"
+                    i18n:translate=""
+                >Actions</h3>
+                <a class="btn btn-secondary mb-3"
+                   tal:attributes="
+                     href string:${context/absolute_url}/@@keycloak_sso_apps_users?_authenticator=${context/@@authenticator/token};
+                   "
+                >
+                  <span i18n:translate="">Add users from Keycloak sso apps in Plone</span>
+                </a>
+                <h3 class="h6 text-uppercase text-muted"
+                    i18n:translate=""
+                >Settings</h3>
+                <div tal:replace="structure view/sso_apps_contents"></div>
+              </div>
+            </div>
           </div>
         </div>
 
