@@ -1,7 +1,12 @@
-## 1.5.5 (unreleased)
+## 1.5.5 (2026-06-04)
 
 
-- Nothing changed yet.
+### New features:
+
+- When creating a new user from an `oidc_sso_apps` token, missing `email` is defaulted to `{username}@kimug.be` and missing `firstName`/`lastName` are defaulted to `{username}` / `"sso-apps"`.
+  [remdub] sso-apps-user-defaults
+- `_decode_token` for `oidc_sso_apps` now reads the JWT audience from `SSO_APPS_AUDIENCE` env var, falling back to `SSO_APPS_CLIENT_ID` and then `"imio-apps-plone"`.
+  [remdub] token-audience
 
 
 ## 1.5.4 (2026-06-04)
