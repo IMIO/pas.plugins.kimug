@@ -265,7 +265,10 @@ class KimugPlugin(OIDCPlugin):
             ).rstrip("/")
             sso_apps_url_parsed = urlparse(sso_apps_url)
             issuer = f"{sso_apps_url_parsed.scheme}://{sso_apps_url_parsed.netloc}/realms/{sso_apps_realm}"
-            audience = os.environ.get("keycloak_audience", "account")
+            audience = os.environ.get(
+                "SSO_APPS_AUDIENCE",
+                os.environ.get("SSO_APPS_CLIENT_ID", "imio-apps-plone"),
+            )
         if is_log_active():
             logger.info(
                 f"_decode_token: (plugin {plugin}) verifying token with issuer='{issuer}', audience='{audience}'"

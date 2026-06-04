@@ -1,5 +1,6 @@
 from oic.oic.message import OpenIDSchema
 from plone import api
+from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import jwt
@@ -250,3 +251,47 @@ class TestPlugin:
             "Member",
         )  # https://github.com/IMIO/pas.plugins.kimug/commit/966d16cabd44379e12cfd580bff80e58a72f98bb
         del os.environ["application_id"]
+
+    def test_decode_token_sso_apps_audience_default(self, portal, monkeypatch):
+        """_decode_token uses 'imio-apps-plone' when neither SSO_APPS_AUDIENCE nor SSO_APPS_CLIENT_ID is set."""
+        monkeypatch.delenv("SSO_APPS_AUDIENCE", raising=False)
+        monkeypatch.delenv("SSO_APPS_CLIENT_ID", raising=False)
+        plugin = portal.acl_users.oidc
+        mock_key = MagicMock()
+        mock_key.key = "key"
+        with patch.object(plugin, "_get_jwks_client") as mock_client, patch(
+            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+        ) as mock_decode:
+            mock_client.return_value.get_signing_key_from_jwt.return_value = mock_key
+            plugin._decode_token("fake.token", plugin="oidc_sso_apps")
+        assert mock_decode.call_args.kwargs["audience"] == "imio-apps-plone"
+
+    def test_decode_token_sso_apps_audience_from_client_id(self, portal, monkeypatch):
+        """_decode_token falls back to SSO_APPS_CLIENT_ID when SSO_APPS_AUDIENCE is not set."""
+        monkeypatch.delenv("SSO_APPS_AUDIENCE", raising=False)
+        monkeypatch.setenv("SSO_APPS_CLIENT_ID", "my-client")
+        plugin = portal.acl_users.oidc
+        mock_key = MagicMock()
+        mock_key.key = "key"
+        with patch.object(plugin, "_get_jwks_client") as mock_client, patch(
+            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+        ) as mock_decode:
+            mock_client.return_value.get_signing_key_from_jwt.return_value = mock_key
+            plugin._decode_token("fake.token", plugin="oidc_sso_apps")
+        assert mock_decode.call_args.kwargs["audience"] == "my-client"
+
+    def test_decode_token_sso_apps_audience_env_takes_priority(
+        self, portal, monkeypatch
+    ):
+        """SSO_APPS_AUDIENCE takes priority over SSO_APPS_CLIENT_ID."""
+        monkeypatch.setenv("SSO_APPS_AUDIENCE", "explicit-audience")
+        monkeypatch.setenv("SSO_APPS_CLIENT_ID", "client-id")
+        plugin = portal.acl_users.oidc
+        mock_key = MagicMock()
+        mock_key.key = "key"
+        with patch.object(plugin, "_get_jwks_client") as mock_client, patch(
+            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+        ) as mock_decode:
+            mock_client.return_value.get_signing_key_from_jwt.return_value = mock_key
+            plugin._decode_token("fake.token", plugin="oidc_sso_apps")
+        assert mock_decode.call_args.kwargs["audience"] == "explicit-audience"
