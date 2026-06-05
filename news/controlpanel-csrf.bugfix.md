@@ -1,1 +1,0 @@
-Fix control panel action buttons (update OIDC settings, sync Keycloak users) being blocked by plone.protect CSRF protection, which aborted the transaction and redirected to the "Confirming User Action" page. The buttons now include a valid `_authenticator` token. [remdub]

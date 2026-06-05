@@ -1,7 +1,14 @@
-## 1.5.6 (unreleased)
+## 1.6.0 (2026-06-05)
 
 
-- Nothing changed yet.
+### New features:
+
+- Refactor the control panel so SSO applications (apps) settings can be configured easily. [remdub] controlpanel-sso-apps
+
+
+### Bug fixes:
+
+- Fix control panel action buttons (update OIDC settings, sync Keycloak users) being blocked by plone.protect CSRF protection, which aborted the transaction and redirected to the "Confirming User Action" page. The buttons now include a valid `_authenticator` token. [remdub] controlpanel-csrf
 
 
 ## 1.5.5 (2026-06-04)
