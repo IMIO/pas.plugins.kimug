@@ -81,15 +81,6 @@ def set_oidc_settings(context):
 
         _set_allowed_groups(oidc)
 
-        try:
-            transaction.commit()
-            logger.info("OIDC settings set with set_oidc_settings()")
-        except ConflictError:
-            transaction.abort()
-            logger.warning(
-                "ConflictError committing OIDC settings: another instance already "
-                "committed the same values. Settings are correct; skipping."
-            )
     else:
         logger.warning("Could not find OIDC plugin, not setting OIDC settings")
 
@@ -110,6 +101,19 @@ def set_oidc_settings(context):
         oidc_sso_apps.scope = ("openid", "profile", "email")
         oidc_sso_apps.userinfo_endpoint_method = "GET"
         # no redirect_uris for this plugin, as it is only used for token validation of the apps
+
+    if os.environ.get("KIMUG_LOG", "false").lower() != "true":
+        api.portal.set_registry_record("pas.plugins.kimug.log", False)
+
+    try:
+        transaction.commit()
+        logger.info("OIDC settings set with set_oidc_settings()")
+    except ConflictError:
+        transaction.abort()
+        logger.warning(
+            "ConflictError committing OIDC settings: another instance already "
+            "committed the same values. Settings are correct; skipping."
+        )
 
 
 def get_admin_access_token(keycloak_url, username, password):

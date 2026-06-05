@@ -5,7 +5,14 @@
     i18n_domain="pas.plugins.kimug"
     >
 
-  <adapter factory=".classic.KimugControlPanelAdapter" />
+  <adapter
+      factory=".classic.KimugControlPanelAdapter"
+      provides="pas.plugins.kimug.interfaces.IKimugSettings"
+      />
+  <adapter
+      factory=".classic.KimugControlPanelAdapter"
+      provides="pas.plugins.kimug.interfaces.IKimugSSOAppsSettings"
+      />
   <browser:page
       name="kimug-controlpanel"
       for="Products.CMFPlone.interfaces.IPloneSiteRoot"

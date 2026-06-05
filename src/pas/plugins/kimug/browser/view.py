@@ -14,7 +14,6 @@ from pas.plugins.oidc.plugins import OAuth2ConnectionException
 from pas.plugins.oidc.session import Session
 from plone import api
 from Products.Five.browser import BrowserView
-from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 from zExceptions import Unauthorized
 
 import logging
@@ -47,28 +46,44 @@ class SetOidcSettingsView(BrowserView):
 
 
 class KeycloakUsersView(BrowserView):
-    # If you want to define a template here, please remove the template attribute from
-    # the configure.zcml registration of this view.
-    # template = ViewPageTemplateFile('my_view.pt')
-    index = ViewPageTemplateFile("users.pt")
-
     def __call__(self):
         keycloak_users = get_keycloak_users_from_oidc()
         added_users = add_keycloak_users_to_plone(keycloak_users)
         api.portal.show_message(f"{added_users} Keycloak users imported", self.request)
-        return self.index()
+        referer = self.request.get("HTTP_REFERER")
+        if referer:
+            self.request.response.redirect(referer)
+        else:
+            self.request.response.redirect(self.context.absolute_url())
 
 
 class KeycloakSSOAppsUsersView(BrowserView):
-    index = ViewPageTemplateFile("users.pt")
-
     def __call__(self):
         keycloak_users = get_keycloak_users_from_oidc_sso_apps()
         added_users = add_keycloak_users_to_plone(keycloak_users)
         api.portal.show_message(
             f"{added_users} Keycloak sso apps users imported", self.request
         )
-        return self.index()
+        referer = self.request.get("HTTP_REFERER")
+        if referer:
+            self.request.response.redirect(referer)
+        else:
+            self.request.response.redirect(self.context.absolute_url())
+
+
+class ToggleDebugModeView(BrowserView):
+    def __call__(self):
+        current = api.portal.get_registry_record("pas.plugins.kimug.log", default=False)
+        new_value = not current
+        api.portal.set_registry_record("pas.plugins.kimug.log", new_value)
+        msg = "Debug logging enabled" if new_value else "Debug logging disabled"
+        api.portal.show_message(msg, self.request)
+        logger.info(msg)
+        referer = self.request.get("HTTP_REFERER")
+        if referer:
+            self.request.response.redirect(referer)
+        else:
+            self.request.response.redirect(self.context.absolute_url())
 
 
 class KimugLoginView(LoginView):

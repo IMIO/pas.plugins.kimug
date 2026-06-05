@@ -166,3 +166,26 @@ class IKimugSettings(Interface):
         required=True,
         default="http://localhost/wca/profile/",
     )
+
+
+class IKimugSSOAppsSettings(Interface):
+    """oidc_sso_apps plugin settings (token validation for iMio apps)."""
+
+    issuer = schema.TextLine(
+        title=_("OIDC/OAuth2 Issuer"),
+        description=_(""),
+        required=False,
+        default="",
+    )
+    client_id = schema.TextLine(
+        title=_("Client ID"),
+        description=_(""),
+        required=False,
+        default="",
+    )
+    client_secret = schema.TextLine(
+        title=_("Client secret"),
+        description=_(""),
+        required=False,
+        default="",
+    )
