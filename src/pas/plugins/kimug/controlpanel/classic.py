@@ -27,6 +27,12 @@ class KimugControlPanelAdapter:
         self.plugin_id = plugin_id
         self.portal = api.portal.get()
         self.encoding = "utf-8"
+        if plugin_id not in self.portal.acl_users:
+            raise RuntimeError(
+                f"KimugControlPanelAdapter: PAS plugin '{plugin_id}' is not "
+                f"installed in acl_users. Run the pas.plugins.kimug upgrade "
+                f"steps to add it."
+            )
         self.settings = self.portal.acl_users[plugin_id]
         self.propertymap = {prop["id"]: prop for prop in self.settings.propertyMap()}
 
