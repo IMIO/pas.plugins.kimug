@@ -1,7 +1,10 @@
-## 1.6.1 (unreleased)
+## 1.6.1 (2026-06-08)
 
 
-- Nothing changed yet.
+### Bug fixes:
+
+- Make the `oidc` plugin handle the interactive login challenge instead of `oidc_sso_apps`. The `oidc_sso_apps` plugin is now removed from `IChallengePlugin` (it only validates Bearer tokens), and upgrade step 1004→1005 fixes already-installed sites.
+  [remdub] oidc-first-challenge
 
 
 ## 1.6.0 (2026-06-05)
