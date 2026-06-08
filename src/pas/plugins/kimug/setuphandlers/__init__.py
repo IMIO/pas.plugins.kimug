@@ -9,6 +9,7 @@ from pas.plugins.kimug.utils import set_oidc_settings
 from pas.plugins.kimug.utils import varenvs_exist
 from plone import api
 from Products.CMFPlone.interfaces import INonInstallable
+from Products.PluggableAuthService.interfaces.plugins import IChallengePlugin
 from zope.interface import implementer
 
 import logging
@@ -29,7 +30,7 @@ class HiddenProfiles:
         ]
 
 
-def _add_plugin(pas, pluginid="oidc", title="OIDC"):
+def _add_plugin(pas, pluginid="oidc", title="OIDC", challenge=True):
     if pluginid in pas.objectIds():
         return pluginid + " already installed."
     plugin = KimugPlugin(pluginid, title=title)
@@ -43,6 +44,13 @@ def _add_plugin(pas, pluginid="oidc", title="OIDC"):
         pas.plugins.movePluginsDown(
             interface, [x[0] for x in pas.plugins.listPlugins(interface)[:-1]]
         )
+    if not challenge:
+        # This plugin only validates Bearer tokens; it must not challenge
+        # browser users (that would redirect to the wrong login). Leave the
+        # interactive login challenge to the "oidc" plugin.
+        active = [x[0] for x in pas.plugins.listPlugins(IChallengePlugin)]
+        if pluginid in active:
+            pas.plugins.deactivatePlugin(IChallengePlugin, pluginid)
 
 
 def post_install(context):
@@ -54,6 +62,7 @@ def post_install(context):
         api.portal.get_tool("acl_users"),
         pluginid="oidc_sso_apps",
         title="OIDC SSO Apps",
+        challenge=False,
     )
 
     set_oidc_settings(context)

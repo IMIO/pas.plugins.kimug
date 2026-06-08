@@ -16,7 +16,7 @@ class TestSetupInstall:
 
     def test_latest_version(self, profile_last_version):
         """Test latest version of default profile."""
-        assert profile_last_version(f"{PACKAGE_NAME}:default") == "1004"
+        assert profile_last_version(f"{PACKAGE_NAME}:default") == "1005"
 
     def test_acl_users_plugin(self, portal):
         """Test active plugin of acl_users."""
@@ -30,3 +30,13 @@ class TestSetupInstall:
     def test_oidc_sso_apps_plugin_installed(self, portal):
         """oidc_sso_apps plugin should be installed in acl_users after post_install."""
         assert "oidc_sso_apps" in portal.acl_users.objectIds()
+
+    def test_oidc_is_first_challenge_plugin(self, portal):
+        """oidc must handle the login challenge; oidc_sso_apps must not challenge."""
+        from Products.PluggableAuthService.interfaces.plugins import IChallengePlugin
+
+        pas = portal.acl_users
+        challenge_plugins = [p[0] for p in pas.plugins.listPlugins(IChallengePlugin)]
+        assert "oidc" in challenge_plugins
+        assert "oidc_sso_apps" not in challenge_plugins
+        assert challenge_plugins[0] == "oidc"
