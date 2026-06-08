@@ -49,4 +49,12 @@
         />
   </genericsetup:upgradeSteps>
 
+  <genericsetup:upgradeStep
+      title="Disable oidc_sso_apps challenge so oidc handles the login"
+      profile="pas.plugins.kimug:default"
+      source="1004"
+      destination="1005"
+      handler=".disable_oidc_sso_apps_challenge"
+      />
+
 </configure>
