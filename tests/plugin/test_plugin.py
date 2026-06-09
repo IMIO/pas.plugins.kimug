@@ -97,44 +97,77 @@ class TestPlugin:
         """_ensure_user_exists should default email to {username}@kimug.be when email is absent."""
         plugin = portal.acl_users.oidc
         with api.env.adopt_roles(["Manager"]):
-            plugin._ensure_user_exists("uid-no-email", {"username": "ssouser"})
+            plugin._ensure_user_exists(
+                "uid-no-email", {"preferred_username": "ssouser"}
+            )
             user = api.user.get(userid="uid-no-email")
         assert user is not None
         assert user.getProperty("email") == "ssouser@kimug.be"
 
     def test_ensure_user_exists_fills_names_from_username(self, portal):
-        """_ensure_user_exists should set firstName=username, lastName='sso-apps' when both are absent."""
+        """_ensure_user_exists should set given_name=username, family_name='sso-apps' when both are absent."""
         plugin = portal.acl_users.oidc
         with api.env.adopt_roles(["Manager"]):
             with patch.object(plugin, "_update_user") as mock_update:
-                plugin._ensure_user_exists("uid-no-names", {"username": "ssouser"})
+                plugin._ensure_user_exists(
+                    "uid-no-names", {"preferred_username": "ssouser"}
+                )
                 userinfo_arg = mock_update.call_args[0][1]
-        assert userinfo_arg["firstName"] == "ssouser"
-        assert userinfo_arg["lastName"] == "sso-apps"
+        assert userinfo_arg["given_name"] == "ssouser"
+        assert userinfo_arg["family_name"] == "sso-apps"
 
     def test_ensure_user_exists_no_default_when_username_empty(self, portal):
         """_ensure_user_exists must not apply any defaults when username is empty."""
         plugin = portal.acl_users.oidc
         with api.env.adopt_roles(["Manager"]):
             with patch.object(plugin, "_update_user") as mock_update:
-                plugin._ensure_user_exists("uid-empty-username", {"username": ""})
+                plugin._ensure_user_exists(
+                    "uid-empty-username", {"preferred_username": ""}
+                )
                 userinfo_arg = mock_update.call_args[0][1]
         assert userinfo_arg["email"] == ""
-        assert userinfo_arg["firstName"] == ""
-        assert userinfo_arg["lastName"] == ""
+        assert userinfo_arg["given_name"] == ""
+        assert userinfo_arg["family_name"] == ""
 
     def test_ensure_user_exists_partial_name_not_overridden(self, portal):
-        """_ensure_user_exists must not touch names when at least one of firstName/lastName is set."""
+        """_ensure_user_exists must not touch names when at least one of given_name/family_name is set."""
         plugin = portal.acl_users.oidc
         with api.env.adopt_roles(["Manager"]):
             with patch.object(plugin, "_update_user") as mock_update:
                 plugin._ensure_user_exists(
                     "uid-partial-name",
-                    {"username": "ssouser", "firstName": "Alice", "lastName": ""},
+                    {
+                        "preferred_username": "ssouser",
+                        "given_name": "Alice",
+                        "family_name": "",
+                    },
                 )
                 userinfo_arg = mock_update.call_args[0][1]
-        assert userinfo_arg["firstName"] == "Alice"
-        assert userinfo_arg["lastName"] == ""
+        assert userinfo_arg["given_name"] == "Alice"
+        assert userinfo_arg["family_name"] == ""
+
+    def test_ensure_user_exists_populates_from_sso_apps_token(self, portal):
+        """A real sso-apps ID token (preferred_username only, no email/name) should
+        still yield a user with the {username}@kimug.be email and a fullname."""
+        plugin = portal.acl_users.oidc
+        payload = {
+            "sub": "4661c32b-bf16-4f85-bac9-09014820c399",
+            "typ": "ID",
+            "email_verified": False,
+            "preferred_username": "imio-apps-teleservices_imio-ic-staging2",
+        }
+        with api.env.adopt_roles(["Manager"]):
+            plugin._ensure_user_exists(payload["sub"], payload)
+            user = api.user.get(userid=payload["sub"])
+        assert user is not None
+        assert (
+            user.getProperty("email")
+            == "imio-apps-teleservices_imio-ic-staging2@kimug.be"
+        )
+        assert (
+            user.getProperty("fullname")
+            == "imio-apps-teleservices_imio-ic-staging2 sso-apps"
+        )
 
     def test_authenticate_creates_user_on_first_login(
         self, portal, keycloak_service, keycloak_issuer

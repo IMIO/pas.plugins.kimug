@@ -310,19 +310,28 @@ class KimugPlugin(OIDCPlugin):
         except Exception:
             logger.exception("Could not create local user for %s", userid)
             return
+        # Read OIDC claim names from the JWT. Keycloak's Admin REST API uses
+        # different field names (username/id/firstName/lastName), but a token
+        # carries the OIDC claims preferred_username/sub/given_name/family_name.
+        username = payload.get("preferred_username", "")
+        email = payload.get("email", "")
+        given_name = payload.get("given_name", "")
+        family_name = payload.get("family_name", "")
+        if username:
+            if not email:
+                email = f"{username}@kimug.be"
+            if not given_name and not family_name:
+                given_name = username
+                family_name = "sso-apps"
         userinfo = {
-            "username": payload.get("username", ""),
-            "email": payload.get("email", ""),
-            "keycloak_id": payload.get("id", ""),
-            "firstName": payload.get("firstName", ""),
-            "lastName": payload.get("lastName", ""),
+            "username": username,
+            "email": email,
+            "keycloak_id": payload.get("sub", ""),
+            # The parent _update_user_properties maps given_name + family_name
+            # to the Plone fullname property.
+            "given_name": given_name,
+            "family_name": family_name,
         }
-        if userinfo["username"]:
-            if not userinfo["email"]:
-                userinfo["email"] = f"{userinfo['username']}@kimug.be"
-            if not userinfo["firstName"] and not userinfo["lastName"]:
-                userinfo["firstName"] = userinfo["username"]
-                userinfo["lastName"] = "sso-apps"
 
         if is_log_active():
             logger.info(
