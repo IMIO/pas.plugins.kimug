@@ -1,7 +1,10 @@
 ## 1.6.2 (unreleased)
 
 
-- Nothing changed yet.
+### Bug fixes:
+
+- Don't crash startup when the `pas.plugins.kimug.log` registry record is missing on a not-yet-upgraded site. The `set_oidc_settings` subscriber now skips writing the record when it isn't registered, instead of raising `InvalidParameterError` and preventing the instance from booting.
+  [remdub] log-record-boot-fix
 
 
 ## 1.6.1 (2026-06-08)

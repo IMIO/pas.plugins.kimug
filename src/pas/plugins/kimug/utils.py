@@ -103,7 +103,11 @@ def set_oidc_settings(context):
         # no redirect_uris for this plugin, as it is only used for token validation of the apps
 
     if os.environ.get("KIMUG_LOG", "false").lower() != "true":
-        api.portal.set_registry_record("pas.plugins.kimug.log", False)
+        if (
+            api.portal.get_registry_record("pas.plugins.kimug.log", default=None)
+            is not None
+        ):
+            api.portal.set_registry_record("pas.plugins.kimug.log", False)
 
     try:
         transaction.commit()
