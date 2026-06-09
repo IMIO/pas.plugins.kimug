@@ -47,10 +47,13 @@ class KimugPlugin(OIDCPlugin):
     meta_type = "Kimug Plugin"
     _dont_swallow_my_exceptions = True
 
-    # JWKS client cache. Refreshed after ``_JWKS_CLIENT_TTL`` seconds so key
-    # rotations on the Keycloak side are picked up without a restart.
-    _jwks_client = None
-    _jwks_client_created_at = 0.0
+    # JWKS clients cached per realm (keyed by plugin id). Refreshed after
+    # ``_JWKS_CLIENT_TTL`` seconds so key rotations on the Keycloak side are
+    # picked up without a restart. A single shared client would be handed to
+    # both the ``oidc`` and ``oidc_sso_apps`` realms, whose tokens then never
+    # match the cached keyset and force a JWKS refetch on every request.
+    _jwks_clients = {}  # plugin id -> PyJWKClient
+    _jwks_clients_created_at = {}  # plugin id -> float (epoch)
     _JWKS_CLIENT_TTL = 3600
 
     add_user_url: str = ""
@@ -198,10 +201,8 @@ class KimugPlugin(OIDCPlugin):
         # Reference the real class explicitly.
         cls = KimugPlugin
         now = time.time()
-        if (
-            cls._jwks_client is None
-            or now - cls._jwks_client_created_at > cls._JWKS_CLIENT_TTL
-        ):
+        created_at = cls._jwks_clients_created_at.get(plugin, 0.0)
+        if plugin not in cls._jwks_clients or now - created_at > cls._JWKS_CLIENT_TTL:
             if plugin == "oidc":
                 keycloak_url = os.environ.get(
                     "keycloak_url", "https://keycloak.127.0.0.1.nip.io/"
@@ -218,20 +219,24 @@ class KimugPlugin(OIDCPlugin):
                 realm = os.environ.get("SSO_APPS_REALM", "sso-apps")
             jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
             if is_log_active():
-                logger.info(f"_get_jwks_client: rebuilding JWKS client for {jwks_url}")
-            cls._jwks_client = PyJWKClient(
+                logger.info(
+                    f"_get_jwks_client: rebuilding JWKS client "
+                    f"for plugin='{plugin}' ({jwks_url})"
+                )
+            cls._jwks_clients[plugin] = PyJWKClient(
                 jwks_url,
                 cache_keys=True,
                 lifespan=cls._JWKS_CLIENT_TTL,
                 timeout=5,
             )
-            cls._jwks_client_created_at = now
+            cls._jwks_clients_created_at[plugin] = now
         elif is_log_active():
-            age = now - cls._jwks_client_created_at
+            age = now - created_at
             logger.info(
-                f"_get_jwks_client: reusing cached JWKS client (age={age:.0f}s)"
+                f"_get_jwks_client: reusing cached JWKS client "
+                f"for plugin='{plugin}' (age={age:.0f}s)"
             )
-        return cls._jwks_client
+        return cls._jwks_clients[plugin]
 
     def _decode_token(self, token, plugin="oidc"):
         """Decode and fully verify a Keycloak-issued RS256 JWT.
