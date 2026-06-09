@@ -1,10 +1,12 @@
 from pas.plugins.kimug import utils
 from pas.plugins.kimug.utils import is_log_active
 from plone import api
+from plone.registry.interfaces import IRegistry
 from unittest.mock import MagicMock
 from unittest.mock import patch
 from ZODB.POSException import ConflictError
 from zope.annotation.interfaces import IAnnotations
+from zope.component import getUtility
 
 import os
 import pytest
@@ -412,6 +414,45 @@ class TestSetOidcSettings:
         assert plugin.client_id == "test-client"
         assert plugin.client_secret == "test-secret"
         assert plugin.issuer == "https://sso.example.com/realms/sso-apps"
+
+    def test_missing_log_record_does_not_crash(self, portal):
+        """If the pas.plugins.kimug.log record is not registered (not-yet-upgraded
+        site), set_oidc_settings must not crash and must leave the record absent."""
+        registry = getUtility(IRegistry)
+        del registry.records["pas.plugins.kimug.log"]
+
+        env = {k: v for k, v in os.environ.items() if k != "KIMUG_LOG"}
+        with patch.dict(os.environ, env, clear=True):
+            with patch("pas.plugins.kimug.utils.transaction"):
+                utils.set_oidc_settings(None)
+
+        assert (
+            api.portal.get_registry_record("pas.plugins.kimug.log", default=None)
+            is None
+        )
+
+    def test_log_record_set_to_false_when_present(self, portal):
+        """When the record exists and KIMUG_LOG is not 'true', it is set to False."""
+        api.portal.set_registry_record("pas.plugins.kimug.log", True)
+
+        env = {k: v for k, v in os.environ.items() if k != "KIMUG_LOG"}
+        with patch.dict(os.environ, env, clear=True):
+            with patch("pas.plugins.kimug.utils.transaction"):
+                utils.set_oidc_settings(None)
+
+        assert is_log_active() is False
+        api.portal.set_registry_record("pas.plugins.kimug.log", False)
+
+    def test_log_record_unchanged_when_kimug_log_true(self, portal):
+        """When KIMUG_LOG is 'true', the record is left untouched."""
+        api.portal.set_registry_record("pas.plugins.kimug.log", True)
+
+        with patch.dict(os.environ, {"KIMUG_LOG": "true"}):
+            with patch("pas.plugins.kimug.utils.transaction"):
+                utils.set_oidc_settings(None)
+
+        assert is_log_active() is True
+        api.portal.set_registry_record("pas.plugins.kimug.log", False)
 
 
 class TestIsLogActive:
