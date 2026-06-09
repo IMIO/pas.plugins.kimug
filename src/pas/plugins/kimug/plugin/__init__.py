@@ -56,6 +56,14 @@ class KimugPlugin(OIDCPlugin):
     _jwks_clients_created_at = {}  # plugin id -> float (epoch)
     _JWKS_CLIENT_TTL = 3600
 
+    # Per-realm JWKS failure backoff. After a failed fetch we skip further
+    # fetches for ``_JWKS_FAILURE_COOLDOWN`` seconds, so a transient 403 from
+    # the Keycloak proxy is not turned into a self-sustaining retry storm
+    # (PyJWT clears its keyset cache on every failed fetch, which otherwise
+    # makes the next request fetch again).
+    _jwks_failed_at = {}  # plugin id -> epoch of last JWKS fetch failure
+    _JWKS_FAILURE_COOLDOWN = 30  # seconds to skip JWKS fetches after a failure
+
     add_user_url: str = ""
     personal_information_url: str = ""
     change_password_url: str = ""
@@ -247,18 +255,32 @@ class KimugPlugin(OIDCPlugin):
         authentication chain fall through to other plugins instead of
         propagating to HTTP 500.
         """
+        cls = KimugPlugin
+        now = time.time()
+        failed_at = cls._jwks_failed_at.get(plugin)
+        if failed_at is not None and now - failed_at < cls._JWKS_FAILURE_COOLDOWN:
+            if is_log_active():
+                logger.info(
+                    f"_decode_token: JWKS for plugin='{plugin}' in failure cooldown "
+                    f"({now - failed_at:.0f}s/{cls._JWKS_FAILURE_COOLDOWN}s), "
+                    f"skipping fetch"
+                )
+            return None
         try:
-            # __import__("ipdb").set_trace()
             signing_key = self._get_jwks_client(plugin=plugin).get_signing_key_from_jwt(
                 token
             )
         except PyJWKClientError as exc:
+            cls._jwks_failed_at[plugin] = now
             logger.info("JWKS lookup failed: %s", exc)
             return None
         except Exception as exc:
             # Network, DNS, or misconfiguration. Degrade gracefully.
+            cls._jwks_failed_at[plugin] = now
             logger.warning("JWKS unreachable: %s", exc)
             return None
+        # JWKS endpoint is reachable again; clear any prior failure backoff.
+        cls._jwks_failed_at.pop(plugin, None)
 
         if plugin == "oidc":
             issuer = os.environ.get("keycloak_issuer")
