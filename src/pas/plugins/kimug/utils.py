@@ -827,16 +827,45 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
             group_id = group.get("id")
             break
 
+    # Optionally restrict to users who are also members of an organisation-specific
+    # PL group (e.g. "pl_belleville_ac"), set by puppet as "[group1, group2]".
+    pl_groups_env = os.environ.get("SSO_APPS_PL_GROUPS")
+    pl_group_names = _parse_bracketed_env_list(pl_groups_env) if pl_groups_env else []
+
     url = f"{keycloak_url}admin/realms/{realm}/groups/{group_id}/members?max=100000"
     users = []
     headers = {"Authorization": f"Bearer {access_token}"}
     try:
+        # When PL groups are configured, build the set of keycloak ids that belong
+        # to at least one of them; only those users will be imported.
+        pl_member_ids = None  # None => no PL filtering
+        if pl_group_names:
+            pl_group_ids = [g["id"] for g in groups if g.get("name") in pl_group_names]
+            if not pl_group_ids:
+                logger.error(
+                    f"PL groups {pl_group_names} not found in Keycloak realm '{realm}'"
+                )
+                return []
+            pl_member_ids = set()
+            for pl_group_id in pl_group_ids:
+                pl_url = (
+                    f"{keycloak_url}admin/realms/{realm}/groups/"
+                    f"{pl_group_id}/members?max=100000"
+                )
+                pl_resp = requests.get(url=pl_url, headers=headers, timeout=timeout)
+                pl_resp.raise_for_status()
+                for member in pl_resp.json():
+                    if member.get("id"):
+                        pl_member_ids.add(member["id"])
+
         response = requests.get(url=url, headers=headers, timeout=timeout)
         response.raise_for_status()
         users_data = response.json()
 
         # Extract username and email from each user
         for user in users_data:
+            if pl_member_ids is not None and user.get("id") not in pl_member_ids:
+                continue
             user_info = {
                 "username": user.get("username", ""),
                 "email": user.get("email", ""),
@@ -930,6 +959,17 @@ def remove_authentic_users(context=None) -> None:
     )
     portal_membership.deleteMembers(users_to_delete, delete_localroles=0)
     transaction.commit()
+
+
+def _parse_bracketed_env_list(value: str) -> list[str]:
+    """Parse a puppet-rendered list env var like '[a, b]' into a list of names.
+
+    Handles the bracketed comma-space form '[a, b]' and a single bare value 'a'.
+    """
+    value = value.strip()
+    if value.startswith("[") and value.endswith("]"):
+        value = value[1:-1]
+    return [v for v in value.split(", ") if v]
 
 
 def _set_allowed_groups(oidc) -> None:

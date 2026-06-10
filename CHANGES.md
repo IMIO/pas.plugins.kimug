@@ -1,6 +1,11 @@
 ## 1.6.4 (unreleased)
 
 
+### New features:
+
+- Restrict the SSO-apps user sync to members of an organisation-specific PL group: `get_keycloak_users_from_oidc_sso_apps` now only imports access-group members that also belong to one of the groups listed in the `SSO_APPS_PL_GROUPS` environment variable (e.g. `[pl_belleville_ac]`). When the variable is unset, all access-group members are imported as before. [remdub]
+
+
 ### Bug fixes:
 
 - Fix sticky `403 Forbidden` on token authentication: the JWKS signing-key client was a single class-level cache shared by both the `oidc` and `sso-apps` realms. A request would receive a client built for the other realm, whose `kid` is never in the cached keyset, forcing a live JWKS refetch on essentially every request. That fetch storm could trip the Keycloak proxy's rate-limiter into returning 403, and PyJWT clearing its keyset cache on each failed fetch kept it failing until a restart. JWKS clients are now cached per realm. [remdub]
