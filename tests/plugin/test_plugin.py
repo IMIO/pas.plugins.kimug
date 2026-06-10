@@ -5,10 +5,31 @@ from unittest.mock import patch
 
 import jwt
 import os
+import pytest
 import requests
 
 
 class TestPlugin:
+    @pytest.fixture(autouse=True)
+    def _isolate_jwks_class_state(self):
+        """Snapshot and restore KimugPlugin's mutable class-level JWKS caches so
+        tests that mutate them do not leak state into later tests."""
+        from pas.plugins.kimug.plugin import KimugPlugin
+
+        saved = {
+            attr: dict(getattr(KimugPlugin, attr))
+            for attr in (
+                "_jwks_clients",
+                "_jwks_clients_created_at",
+                "_jwks_failed_at",
+            )
+        }
+        yield
+        for attr, original in saved.items():
+            live = getattr(KimugPlugin, attr)
+            live.clear()
+            live.update(original)
+
     def _initialize(self, portal):
         pas = api.portal.get_tool("acl_users")
         plugin = getattr(pas, "oidc")
