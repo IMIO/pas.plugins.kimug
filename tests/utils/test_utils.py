@@ -137,6 +137,37 @@ class TestUtils:
 
         assert oidc.allowed_groups == ("group.1 is - the first!",)
 
+    def test_set_municipality_groups(self, portal):
+        """Test _set_municipality_groups: env var -> oidc_sso_apps property."""
+
+        oidc_sso_apps = utils.get_plugin("oidc_sso_apps")
+
+        # 1. No environment variable set: property should not change
+        oidc_sso_apps.municipality_groups = ("unchanged",)
+        os.environ.pop("SSO_APPS_MUNICIPALITY_GROUPS", None)
+        utils._set_municipality_groups(oidc_sso_apps)
+        assert oidc_sso_apps.municipality_groups == ("unchanged",)
+
+        # 2. Typical scenario: bracketed list from puppet
+        os.environ["SSO_APPS_MUNICIPALITY_GROUPS"] = "[pl_belleville_ac, pl_another_ic]"
+        utils._set_municipality_groups(oidc_sso_apps)
+        assert oidc_sso_apps.municipality_groups == (
+            "pl_belleville_ac",
+            "pl_another_ic",
+        )
+
+        # 3. Empty list means no filtering (the key difference from allowed_groups)
+        os.environ["SSO_APPS_MUNICIPALITY_GROUPS"] = "[]"
+        utils._set_municipality_groups(oidc_sso_apps)
+        assert oidc_sso_apps.municipality_groups == ()
+
+        # 4. Single bare value (no brackets)
+        os.environ["SSO_APPS_MUNICIPALITY_GROUPS"] = "pl_belleville_ac"
+        utils._set_municipality_groups(oidc_sso_apps)
+        assert oidc_sso_apps.municipality_groups == ("pl_belleville_ac",)
+
+        os.environ.pop("SSO_APPS_MUNICIPALITY_GROUPS", None)
+
 
 class TestGetKeycloakUsersFromOidcSsoApps:
     def _configure_plugin(self):
@@ -144,6 +175,8 @@ class TestGetKeycloakUsersFromOidcSsoApps:
         plugin.issuer = "https://sso.example.com/realms/sso-apps"
         plugin.client_id = "test-client"
         plugin.client_secret = "test-secret"
+        # Default: no municipality filtering (reset to avoid leakage between tests).
+        plugin.municipality_groups = ()
         return plugin
 
     def _mock_response(self, data):
@@ -384,9 +417,10 @@ class TestGetKeycloakUsersFromOidcSsoApps:
         assert result == []
 
     def test_municipality_group_filtering_keeps_only_municipality_members(self, portal):
-        """With SSO_APPS_MUNICIPALITY_GROUPS set, only access-group members that are also in a
-        Municipality group are imported."""
-        self._configure_plugin()
+        """With the municipality_groups property set, only access-group members that are
+        also in a Municipality group are imported."""
+        plugin = self._configure_plugin()
+        plugin.municipality_groups = ("pl_belleville_ac",)
         groups = [
             {"id": "grp-access", "name": "access_imio-apps-kimug"},
             {"id": "grp-municipality", "name": "pl_belleville_ac"},
@@ -396,42 +430,40 @@ class TestGetKeycloakUsersFromOidcSsoApps:
             {"id": "uid-1", "username": "alice", "email": "alice@example.com"},
             {"id": "uid-2", "username": "bob", "email": "bob@example.com"},
         ]
-        with patch.dict(
-            os.environ, {"SSO_APPS_MUNICIPALITY_GROUPS": "[pl_belleville_ac]"}
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
         ):
-            with patch(
-                "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
-            ):
-                with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
-                    mock_get.side_effect = [
-                        self._mock_response(groups),
-                        self._mock_response(municipality_members),
-                        self._mock_response(access_members),
-                    ]
-                    result = utils.get_keycloak_users_from_oidc_sso_apps()
+            with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                mock_get.side_effect = [
+                    self._mock_response(groups),
+                    self._mock_response(municipality_members),
+                    self._mock_response(access_members),
+                ]
+                result = utils.get_keycloak_users_from_oidc_sso_apps()
 
         usernames = [u["username"] for u in result]
         assert usernames == ["alice"]
-        # The PL members are fetched before the access-group members.
+        # The municipality members are fetched before the access-group members.
         municipality_url = mock_get.call_args_list[1].kwargs["url"]
         assert "grp-municipality" in municipality_url
 
     def test_municipality_group_not_found_returns_empty_list(self, portal):
         """If a configured Municipality group does not exist in the realm, no user qualifies."""
-        self._configure_plugin()
+        plugin = self._configure_plugin()
+        plugin.municipality_groups = ("pl_missing",)
         groups = [{"id": "grp-access", "name": "access_imio-apps-kimug"}]
-        with patch.dict(os.environ, {"SSO_APPS_MUNICIPALITY_GROUPS": "[pl_missing]"}):
-            with patch(
-                "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
-            ):
-                with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
-                    mock_get.side_effect = [self._mock_response(groups)]
-                    result = utils.get_keycloak_users_from_oidc_sso_apps()
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+        ):
+            with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                mock_get.side_effect = [self._mock_response(groups)]
+                result = utils.get_keycloak_users_from_oidc_sso_apps()
         assert result == []
 
     def test_multiple_municipality_groups_membership_in_either_qualifies(self, portal):
         """A user in any one of the configured Municipality groups is imported."""
-        self._configure_plugin()
+        plugin = self._configure_plugin()
+        plugin.municipality_groups = ("pl_belleville_ac", "pl_another_ic")
         groups = [
             {"id": "grp-access", "name": "access_imio-apps-kimug"},
             {"id": "grp-municipality1", "name": "pl_belleville_ac"},
@@ -444,21 +476,17 @@ class TestGetKeycloakUsersFromOidcSsoApps:
             {"id": "uid-2", "username": "bob", "email": "bob@example.com"},
             {"id": "uid-3", "username": "carol", "email": "carol@example.com"},
         ]
-        with patch.dict(
-            os.environ,
-            {"SSO_APPS_MUNICIPALITY_GROUPS": "[pl_belleville_ac, pl_another_ic]"},
+        with patch(
+            "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
         ):
-            with patch(
-                "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
-            ):
-                with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
-                    mock_get.side_effect = [
-                        self._mock_response(groups),
-                        self._mock_response(pl1_members),
-                        self._mock_response(pl2_members),
-                        self._mock_response(access_members),
-                    ]
-                    result = utils.get_keycloak_users_from_oidc_sso_apps()
+            with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                mock_get.side_effect = [
+                    self._mock_response(groups),
+                    self._mock_response(pl1_members),
+                    self._mock_response(pl2_members),
+                    self._mock_response(access_members),
+                ]
+                result = utils.get_keycloak_users_from_oidc_sso_apps()
 
         usernames = sorted(u["username"] for u in result)
         assert usernames == ["alice", "bob"]

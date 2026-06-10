@@ -189,3 +189,16 @@ class IKimugSSOAppsSettings(Interface):
         required=False,
         default="",
     )
+    municipality_groups = schema.List(
+        title=_("Municipality Groups"),
+        description=_(
+            "Members of these groups are imported from SSO apps. "
+            "Leave empty to import all access-group members."
+        ),
+        value_type=schema.TextLine(
+            title=_("Group"),
+            description=_(""),
+        ),
+        required=False,
+        default=[],
+    )

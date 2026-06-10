@@ -67,6 +67,7 @@ class KimugPlugin(OIDCPlugin):
     add_user_url: str = ""
     personal_information_url: str = ""
     change_password_url: str = ""
+    municipality_groups: tuple[str] = ()
     _properties = list(OIDCPlugin._properties)
     _properties.append(
         {
@@ -90,6 +91,14 @@ class KimugPlugin(OIDCPlugin):
             "type": "string",
             "mode": "w",
             "label": "Change Password URL",
+        }
+    )
+    _properties.append(
+        {
+            "id": "municipality_groups",
+            "type": "lines",
+            "mode": "w",
+            "label": "Municipality Groups",
         }
     )
     _properties = tuple(_properties)
