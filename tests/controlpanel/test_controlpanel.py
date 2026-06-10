@@ -30,6 +30,17 @@ class TestControlPanelAdapter:
         assert plugin.client_id == "my-client"
         assert plugin.client_secret == "my-secret"  # nosec B105
 
+    def test_adapter_writes_municipality_groups(self, portal):
+        """Setting municipality_groups through the adapter persists on the plugin."""
+        adapter = KimugControlPanelAdapter(portal, plugin_id="oidc_sso_apps")
+        adapter.municipality_groups = ("pl_belleville_ac", "pl_another_ic")
+
+        plugin = portal.acl_users["oidc_sso_apps"]
+        assert plugin.getProperty("municipality_groups") == (
+            "pl_belleville_ac",
+            "pl_another_ic",
+        )
+
 
 class TestSSOAppsSettingsForm:
     def test_form_targets_sso_apps_plugin(self, portal, http_request):
@@ -49,12 +60,14 @@ class TestSSOAppsSettingsForm:
                 "issuer": "https://example.org/realms/sso-apps",
                 "client_id": "apps-client",
                 "client_secret": "apps-secret",  # nosec B105
+                "municipality_groups": ["pl_belleville_ac"],
             }
         )
         plugin = portal.acl_users["oidc_sso_apps"]
         assert plugin.issuer == "https://example.org/realms/sso-apps"
         assert plugin.client_id == "apps-client"
         assert plugin.client_secret == "apps-secret"  # nosec B105
+        assert list(plugin.getProperty("municipality_groups")) == ["pl_belleville_ac"]
 
 
 class TestControlPanelView:

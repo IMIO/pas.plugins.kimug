@@ -101,6 +101,7 @@ def set_oidc_settings(context):
         oidc_sso_apps.scope = ("openid", "profile", "email")
         oidc_sso_apps.userinfo_endpoint_method = "GET"
         # no redirect_uris for this plugin, as it is only used for token validation of the apps
+        _set_municipality_groups(oidc_sso_apps)
 
     if os.environ.get("KIMUG_LOG", "false").lower() != "true":
         if (
@@ -828,13 +829,10 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
             break
 
     # Optionally restrict to users who are also members of an organisation-specific
-    # Municipality group (e.g. "pl_belleville_ac"), set by puppet as "[group1, group2]".
-    municipality_groups_env = os.environ.get("SSO_APPS_MUNICIPALITY_GROUPS")
-    municipality_group_names = (
-        _parse_bracketed_env_list(municipality_groups_env)
-        if municipality_groups_env
-        else []
-    )
+    # Municipality group (e.g. "pl_belleville_ac"). The list is stored as a plugin
+    # property (set from SSO_APPS_MUNICIPALITY_GROUPS at startup, editable in the
+    # control panel). An empty list means no filtering.
+    municipality_group_names = list(oidc_sso_apps.municipality_groups or [])
 
     url = f"{keycloak_url}admin/realms/{realm}/groups/{group_id}/members?max=100000"
     users = []
@@ -1008,3 +1006,22 @@ def _set_allowed_groups(oidc) -> None:
         logger.info(f"Set allowed groups to: {varenv_allowed_groups}")
     else:
         logger.info("No environment variable for allowed groups set. Not changing.")
+
+
+def _set_municipality_groups(oidc_sso_apps) -> None:
+    """Set municipality groups on the oidc_sso_apps plugin from the
+    SSO_APPS_MUNICIPALITY_GROUPS environment variable.
+
+    Same pattern as _set_allowed_groups: the puppet-rendered value is an
+    unquoted list like "[group1, group2]"; an unset variable leaves the
+    property unchanged. An empty list means "no filtering".
+    """
+    raw = os.environ.get("SSO_APPS_MUNICIPALITY_GROUPS", None)
+    if raw is None:
+        logger.info(
+            "No environment variable for municipality groups set. Not changing."
+        )
+        return
+    municipality_groups = tuple(_parse_bracketed_env_list(raw))
+    oidc_sso_apps.municipality_groups = municipality_groups
+    logger.info(f"Set municipality groups to: {list(municipality_groups)}")
