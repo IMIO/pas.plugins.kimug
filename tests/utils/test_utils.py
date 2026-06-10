@@ -383,9 +383,9 @@ class TestGetKeycloakUsersFromOidcSsoApps:
                 result = utils.get_keycloak_users_from_oidc_sso_apps()
         assert result == []
 
-    def test_pl_group_filtering_keeps_only_pl_members(self, portal):
-        """With SSO_APPS_PL_GROUPS set, only access-group members that are also in a
-        PL group are imported."""
+    def test_municipality_group_filtering_keeps_only_pl_members(self, portal):
+        """With SSO_APPS_MUNICIPALITY_GROUPS set, only access-group members that are also in a
+        Municipality group are imported."""
         self._configure_plugin()
         groups = [
             {"id": "grp-access", "name": "access_imio-apps-kimug"},
@@ -396,7 +396,9 @@ class TestGetKeycloakUsersFromOidcSsoApps:
             {"id": "uid-1", "username": "alice", "email": "alice@example.com"},
             {"id": "uid-2", "username": "bob", "email": "bob@example.com"},
         ]
-        with patch.dict(os.environ, {"SSO_APPS_PL_GROUPS": "[pl_belleville_ac]"}):
+        with patch.dict(
+            os.environ, {"SSO_APPS_MUNICIPALITY_GROUPS": "[pl_belleville_ac]"}
+        ):
             with patch(
                 "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
             ):
@@ -411,14 +413,14 @@ class TestGetKeycloakUsersFromOidcSsoApps:
         usernames = [u["username"] for u in result]
         assert usernames == ["alice"]
         # The PL members are fetched before the access-group members.
-        pl_url = mock_get.call_args_list[1].kwargs["url"]
-        assert "grp-pl" in pl_url
+        municipality_url = mock_get.call_args_list[1].kwargs["url"]
+        assert "grp-pl" in municipality_url
 
-    def test_pl_group_not_found_returns_empty_list(self, portal):
-        """If a configured PL group does not exist in the realm, no user qualifies."""
+    def test_municipality_group_not_found_returns_empty_list(self, portal):
+        """If a configured Municipality group does not exist in the realm, no user qualifies."""
         self._configure_plugin()
         groups = [{"id": "grp-access", "name": "access_imio-apps-kimug"}]
-        with patch.dict(os.environ, {"SSO_APPS_PL_GROUPS": "[pl_missing]"}):
+        with patch.dict(os.environ, {"SSO_APPS_MUNICIPALITY_GROUPS": "[pl_missing]"}):
             with patch(
                 "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
             ):
@@ -427,8 +429,8 @@ class TestGetKeycloakUsersFromOidcSsoApps:
                     result = utils.get_keycloak_users_from_oidc_sso_apps()
         assert result == []
 
-    def test_multiple_pl_groups_membership_in_either_qualifies(self, portal):
-        """A user in any one of the configured PL groups is imported."""
+    def test_multiple_municipality_groups_membership_in_either_qualifies(self, portal):
+        """A user in any one of the configured Municipality groups is imported."""
         self._configure_plugin()
         groups = [
             {"id": "grp-access", "name": "access_imio-apps-kimug"},
@@ -443,7 +445,8 @@ class TestGetKeycloakUsersFromOidcSsoApps:
             {"id": "uid-3", "username": "carol", "email": "carol@example.com"},
         ]
         with patch.dict(
-            os.environ, {"SSO_APPS_PL_GROUPS": "[pl_belleville_ac, pl_another_ic]"}
+            os.environ,
+            {"SSO_APPS_MUNICIPALITY_GROUPS": "[pl_belleville_ac, pl_another_ic]"},
         ):
             with patch(
                 "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"

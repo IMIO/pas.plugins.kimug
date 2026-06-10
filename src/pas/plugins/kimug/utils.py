@@ -828,35 +828,43 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
             break
 
     # Optionally restrict to users who are also members of an organisation-specific
-    # PL group (e.g. "pl_belleville_ac"), set by puppet as "[group1, group2]".
-    pl_groups_env = os.environ.get("SSO_APPS_PL_GROUPS")
-    pl_group_names = _parse_bracketed_env_list(pl_groups_env) if pl_groups_env else []
+    # Municipality group (e.g. "pl_belleville_ac"), set by puppet as "[group1, group2]".
+    municipality_groups_env = os.environ.get("SSO_APPS_MUNICIPALITY_GROUPS")
+    municipality_group_names = (
+        _parse_bracketed_env_list(municipality_groups_env)
+        if municipality_groups_env
+        else []
+    )
 
     url = f"{keycloak_url}admin/realms/{realm}/groups/{group_id}/members?max=100000"
     users = []
     headers = {"Authorization": f"Bearer {access_token}"}
     try:
-        # When PL groups are configured, build the set of keycloak ids that belong
+        # When Municipality groups are configured, build the set of keycloak ids that belong
         # to at least one of them; only those users will be imported.
-        pl_member_ids = None  # None => no PL filtering
-        if pl_group_names:
-            pl_group_ids = [g["id"] for g in groups if g.get("name") in pl_group_names]
-            if not pl_group_ids:
+        municipality_member_ids = None  # None => no PL filtering
+        if municipality_group_names:
+            municipality_group_ids = [
+                g["id"] for g in groups if g.get("name") in municipality_group_names
+            ]
+            if not municipality_group_ids:
                 logger.error(
-                    f"PL groups {pl_group_names} not found in Keycloak realm '{realm}'"
+                    f"Municipality groups {municipality_group_names} not found in Keycloak realm '{realm}'"
                 )
                 return []
-            pl_member_ids = set()
-            for pl_group_id in pl_group_ids:
-                pl_url = (
+            municipality_member_ids = set()
+            for municipality_group_id in municipality_group_ids:
+                municipality_url = (
                     f"{keycloak_url}admin/realms/{realm}/groups/"
-                    f"{pl_group_id}/members?max=100000"
+                    f"{municipality_group_id}/members?max=100000"
                 )
-                pl_resp = requests.get(url=pl_url, headers=headers, timeout=timeout)
+                pl_resp = requests.get(
+                    url=municipality_url, headers=headers, timeout=timeout
+                )
                 pl_resp.raise_for_status()
                 for member in pl_resp.json():
                     if member.get("id"):
-                        pl_member_ids.add(member["id"])
+                        municipality_member_ids.add(member["id"])
 
         response = requests.get(url=url, headers=headers, timeout=timeout)
         response.raise_for_status()
@@ -864,7 +872,10 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
 
         # Extract username and email from each user
         for user in users_data:
-            if pl_member_ids is not None and user.get("id") not in pl_member_ids:
+            if (
+                municipality_member_ids is not None
+                and user.get("id") not in municipality_member_ids
+            ):
                 continue
             user_info = {
                 "username": user.get("username", ""),
