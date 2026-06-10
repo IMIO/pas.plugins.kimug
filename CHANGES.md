@@ -1,7 +1,10 @@
 ## 1.6.4 (unreleased)
 
 
-- Nothing changed yet.
+### Bug fixes:
+
+- Fix sticky `403 Forbidden` on token authentication: the JWKS signing-key client was a single class-level cache shared by both the `oidc` and `sso-apps` realms. A request would receive a client built for the other realm, whose `kid` is never in the cached keyset, forcing a live JWKS refetch on essentially every request. That fetch storm could trip the Keycloak proxy's rate-limiter into returning 403, and PyJWT clearing its keyset cache on each failed fetch kept it failing until a restart. JWKS clients are now cached per realm. [remdub]
+- Add a per-realm JWKS failure backoff: after a failed signing-key fetch, further fetches for that realm are skipped for a short cooldown, so a transient 403 from the Keycloak proxy can no longer become a self-sustaining retry storm. Authentication for the realm recovers automatically once the endpoint is healthy again, without a restart. [remdub]
 
 
 ## 1.6.3 (2026-06-09)

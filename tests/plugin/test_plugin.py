@@ -5,10 +5,31 @@ from unittest.mock import patch
 
 import jwt
 import os
+import pytest
 import requests
 
 
 class TestPlugin:
+    @pytest.fixture(autouse=True)
+    def _isolate_jwks_class_state(self):
+        """Snapshot and restore KimugPlugin's mutable class-level JWKS caches so
+        tests that mutate them do not leak state into later tests."""
+        from pas.plugins.kimug.plugin import KimugPlugin
+
+        saved = {
+            attr: dict(getattr(KimugPlugin, attr))
+            for attr in (
+                "_jwks_clients",
+                "_jwks_clients_created_at",
+                "_jwks_failed_at",
+            )
+        }
+        yield
+        for attr, original in saved.items():
+            live = getattr(KimugPlugin, attr)
+            live.clear()
+            live.update(original)
+
     def _initialize(self, portal):
         pas = api.portal.get_tool("acl_users")
         plugin = getattr(pas, "oidc")
@@ -375,3 +396,90 @@ class TestPlugin:
             mock_client.return_value.get_signing_key_from_jwt.return_value = mock_key
             plugin._decode_token("fake.token", plugin="oidc_sso_apps")
         assert mock_decode.call_args.kwargs["audience"] == "explicit-audience"
+
+    def test_get_jwks_client_cached_per_realm(self, portal, monkeypatch):
+        """Each realm must get its own JWKS client. A single shared client would
+        be handed to the wrong realm, whose tokens never match the cached keyset
+        and force a JWKS refetch on every request (the cause of the sticky 403).
+        """
+        from pas.plugins.kimug.plugin import KimugPlugin
+
+        # PyJWKClient does no network I/O at construction, so this is offline.
+        monkeypatch.setenv("keycloak_url", "https://kc-oidc.example.com/")
+        monkeypatch.setenv("keycloak_realm", "plone")
+        monkeypatch.setenv("SSO_APPS_URL", "https://kc-sso.example.com/")
+        monkeypatch.setenv("SSO_APPS_REALM", "sso-apps")
+        # Start from a clean class-level cache for a deterministic assertion.
+        KimugPlugin._jwks_clients.clear()
+        KimugPlugin._jwks_clients_created_at.clear()
+
+        plugin = portal.acl_users.oidc
+        oidc_client = plugin._get_jwks_client(plugin="oidc")
+        sso_client = plugin._get_jwks_client(plugin="oidc_sso_apps")
+
+        assert oidc_client is not sso_client
+        assert oidc_client.uri == (
+            "https://kc-oidc.example.com/realms/plone/protocol/openid-connect/certs"
+        )
+        assert sso_client.uri == (
+            "https://kc-sso.example.com/realms/sso-apps/protocol/openid-connect/certs"
+        )
+        # Same realm returns the cached instance rather than rebuilding.
+        assert plugin._get_jwks_client(plugin="oidc") is oidc_client
+        assert plugin._get_jwks_client(plugin="oidc_sso_apps") is sso_client
+
+    def test_decode_token_failure_triggers_cooldown(self, portal):
+        """After a JWKS failure, an immediate retry must short-circuit without
+        hitting the endpoint again — this is the backoff that prevents a
+        transient 403 from becoming a self-sustaining fetch storm.
+        """
+        from jwt.exceptions import PyJWKClientError
+        from pas.plugins.kimug.plugin import KimugPlugin
+
+        KimugPlugin._jwks_failed_at.clear()
+        plugin = portal.acl_users.oidc
+        mock_client = MagicMock()
+        mock_client.get_signing_key_from_jwt.side_effect = PyJWKClientError("boom")
+        with patch.object(plugin, "_get_jwks_client", return_value=mock_client):
+            first = plugin._decode_token("fake.token", plugin="oidc")
+            second = plugin._decode_token("fake.token", plugin="oidc")
+        assert first is None
+        assert second is None
+        # Second call was suppressed by the cooldown, so only one fetch attempt.
+        assert mock_client.get_signing_key_from_jwt.call_count == 1
+        assert "oidc" in KimugPlugin._jwks_failed_at
+
+    def test_decode_token_retries_after_cooldown_elapsed(self, portal):
+        """Once the cooldown window has passed, the next call must attempt the
+        JWKS fetch again rather than staying suppressed forever.
+        """
+        from jwt.exceptions import PyJWKClientError
+        from pas.plugins.kimug.plugin import KimugPlugin
+
+        # Mark a failure far enough in the past that the cooldown has elapsed.
+        KimugPlugin._jwks_failed_at["oidc"] = 0.0
+        plugin = portal.acl_users.oidc
+        mock_client = MagicMock()
+        mock_client.get_signing_key_from_jwt.side_effect = PyJWKClientError("boom")
+        with patch.object(plugin, "_get_jwks_client", return_value=mock_client):
+            result = plugin._decode_token("fake.token", plugin="oidc")
+        assert result is None
+        assert mock_client.get_signing_key_from_jwt.call_count == 1
+
+    def test_decode_token_success_clears_cooldown(self, portal, monkeypatch):
+        """A successful key fetch must clear any prior failure marker so the
+        realm is not left in a stale backoff state.
+        """
+        from pas.plugins.kimug.plugin import KimugPlugin
+
+        KimugPlugin._jwks_failed_at["oidc"] = 0.0
+        plugin = portal.acl_users.oidc
+        mock_key = MagicMock()
+        mock_key.key = "key"
+        mock_client = MagicMock()
+        mock_client.get_signing_key_from_jwt.return_value = mock_key
+        with patch.object(plugin, "_get_jwks_client", return_value=mock_client), patch(
+            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+        ):
+            plugin._decode_token("fake.token", plugin="oidc")
+        assert "oidc" not in KimugPlugin._jwks_failed_at
