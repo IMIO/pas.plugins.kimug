@@ -383,15 +383,15 @@ class TestGetKeycloakUsersFromOidcSsoApps:
                 result = utils.get_keycloak_users_from_oidc_sso_apps()
         assert result == []
 
-    def test_municipality_group_filtering_keeps_only_pl_members(self, portal):
+    def test_municipality_group_filtering_keeps_only_municipality_members(self, portal):
         """With SSO_APPS_MUNICIPALITY_GROUPS set, only access-group members that are also in a
         Municipality group are imported."""
         self._configure_plugin()
         groups = [
             {"id": "grp-access", "name": "access_imio-apps-kimug"},
-            {"id": "grp-pl", "name": "pl_belleville_ac"},
+            {"id": "grp-municipality", "name": "pl_belleville_ac"},
         ]
-        pl_members = [{"id": "uid-1", "username": "alice"}]
+        municipality_members = [{"id": "uid-1", "username": "alice"}]
         access_members = [
             {"id": "uid-1", "username": "alice", "email": "alice@example.com"},
             {"id": "uid-2", "username": "bob", "email": "bob@example.com"},
@@ -405,7 +405,7 @@ class TestGetKeycloakUsersFromOidcSsoApps:
                 with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
                     mock_get.side_effect = [
                         self._mock_response(groups),
-                        self._mock_response(pl_members),
+                        self._mock_response(municipality_members),
                         self._mock_response(access_members),
                     ]
                     result = utils.get_keycloak_users_from_oidc_sso_apps()
@@ -414,7 +414,7 @@ class TestGetKeycloakUsersFromOidcSsoApps:
         assert usernames == ["alice"]
         # The PL members are fetched before the access-group members.
         municipality_url = mock_get.call_args_list[1].kwargs["url"]
-        assert "grp-pl" in municipality_url
+        assert "grp-municipality" in municipality_url
 
     def test_municipality_group_not_found_returns_empty_list(self, portal):
         """If a configured Municipality group does not exist in the realm, no user qualifies."""
@@ -434,8 +434,8 @@ class TestGetKeycloakUsersFromOidcSsoApps:
         self._configure_plugin()
         groups = [
             {"id": "grp-access", "name": "access_imio-apps-kimug"},
-            {"id": "grp-pl1", "name": "pl_belleville_ac"},
-            {"id": "grp-pl2", "name": "pl_another_ic"},
+            {"id": "grp-municipality1", "name": "pl_belleville_ac"},
+            {"id": "grp-municipality2", "name": "pl_another_ic"},
         ]
         pl1_members = [{"id": "uid-1", "username": "alice"}]
         pl2_members = [{"id": "uid-2", "username": "bob"}]

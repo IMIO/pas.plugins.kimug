@@ -858,11 +858,11 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
                     f"{keycloak_url}admin/realms/{realm}/groups/"
                     f"{municipality_group_id}/members?max=100000"
                 )
-                pl_resp = requests.get(
+                municipality_resp = requests.get(
                     url=municipality_url, headers=headers, timeout=timeout
                 )
-                pl_resp.raise_for_status()
-                for member in pl_resp.json():
+                municipality_resp.raise_for_status()
+                for member in municipality_resp.json():
                     if member.get("id"):
                         municipality_member_ids.add(member["id"])
 
