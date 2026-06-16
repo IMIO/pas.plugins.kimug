@@ -8,6 +8,8 @@
 
 - Restrict the SSO-apps user sync to members of an organisation-specific municipality group: `get_keycloak_users_from_oidc_sso_apps` now only imports access-group members that also belong to one of the groups listed in the `SSO_APPS_MUNICIPALITY_GROUPS` environment variable (e.g. `[pl_belleville_ac]`). When the variable is unset, all access-group members are imported as before. [remdub]
 
+- Browser view (with run and dry-run buttons in the control panel) and thin `scripts/set_sso_apps_permissions.py` runscript to set roles on authentic sources from sso apps. [remdub]
+
 
 ### Bug fixes:
 

@@ -628,6 +628,130 @@ class TestGetSsoAppsUsersWithMunicipalities:
         assert result == []
 
 
+class TestSetSsoAppsLocalRoles:
+    def _make_user(self, userid, username, email):
+        return api.user.create(
+            email=email,
+            username=username,
+            password="Secret123!",
+            properties={"username": username},
+        )
+
+    def _user_dict(self, **overrides):
+        user = {
+            "username": "alice",
+            "email": "alice@example.com",
+            "keycloak_id": "uid-1",
+            "firstName": "Alice",
+            "lastName": "Smith",
+            "municipalities": ["belleville"],
+        }
+        user.update(overrides)
+        return user
+
+    def test_grants_local_roles_on_matching_folder(self, portal):
+        """A user with a 'belleville' municipality gets the local roles on /belleville."""
+        with api.env.adopt_roles(["Manager"]):
+            self._make_user("alice", "alice", "alice@example.com")
+            folder = api.content.create(
+                container=portal, type="Folder", id="belleville", title="Belleville"
+            )
+            with patch(
+                "pas.plugins.kimug.utils.get_sso_apps_users_with_municipalities",
+                return_value=[self._user_dict()],
+            ):
+                with patch("pas.plugins.kimug.utils.transaction"):
+                    summary = utils.set_sso_apps_local_roles(portal)
+
+            roles = folder.get_local_roles_for_userid("alice")
+        assert set(utils.SSO_APPS_LOCAL_ROLES).issubset(set(roles))
+        assert [(u, uid, loc) for (u, uid, loc) in summary["granted"]] == [
+            ("alice", "alice", "belleville")
+        ]
+        assert summary["dry_run"] is False
+
+    def test_dry_run_makes_no_changes(self, portal):
+        """With dry_run=True the summary reports the grant but no role is set."""
+        user = self._user_dict(
+            username="bob", keycloak_id="uid-2", municipalities=["namur"]
+        )
+        with api.env.adopt_roles(["Manager"]):
+            self._make_user("bob", "bob", "bob@example.com")
+            folder = api.content.create(
+                container=portal, type="Folder", id="namur", title="Namur"
+            )
+            with patch(
+                "pas.plugins.kimug.utils.get_sso_apps_users_with_municipalities",
+                return_value=[user],
+            ):
+                with patch("pas.plugins.kimug.utils.transaction") as mock_txn:
+                    summary = utils.set_sso_apps_local_roles(portal, dry_run=True)
+
+            local_roles = folder.get_local_roles_for_userid("bob")
+        assert local_roles == ()
+        assert summary["dry_run"] is True
+        assert len(summary["granted"]) == 1
+        mock_txn.commit.assert_not_called()
+
+    def test_missing_user_and_missing_folder_are_reported(self, portal):
+        """Users absent from Plone and slugs without a folder land in the summary."""
+        users = [
+            self._user_dict(username="carol", municipalities=["ghost-town"]),
+            self._user_dict(username="ghost", keycloak_id="uid-99"),
+        ]
+        with api.env.adopt_roles(["Manager"]):
+            self._make_user("carol", "carol", "carol@example.com")
+            with patch(
+                "pas.plugins.kimug.utils.get_sso_apps_users_with_municipalities",
+                return_value=users,
+            ):
+                with patch("pas.plugins.kimug.utils.transaction"):
+                    summary = utils.set_sso_apps_local_roles(portal)
+
+        assert ("carol", "ghost-town") in summary["no_folder"]
+        assert "ghost" in summary["missing_user"]
+        assert summary["granted"] == []
+
+    def test_idempotent_merges_existing_roles(self, portal):
+        """An existing unrelated local role is preserved when the roles are merged."""
+        user = self._user_dict(
+            username="dave", keycloak_id="uid-3", municipalities=["liege"]
+        )
+        with api.env.adopt_roles(["Manager"]):
+            self._make_user("dave", "dave", "dave@example.com")
+            folder = api.content.create(
+                container=portal, type="Folder", id="liege", title="Liege"
+            )
+            folder.manage_setLocalRoles("dave", ["Reviewer"])
+            with patch(
+                "pas.plugins.kimug.utils.get_sso_apps_users_with_municipalities",
+                return_value=[user],
+            ):
+                with patch("pas.plugins.kimug.utils.transaction"):
+                    utils.set_sso_apps_local_roles(portal)
+
+            roles = set(folder.get_local_roles_for_userid("dave"))
+        assert "Reviewer" in roles
+        assert set(utils.SSO_APPS_LOCAL_ROLES).issubset(roles)
+
+    def test_conflict_error_is_handled(self, portal):
+        """A ConflictError on commit is caught and the transaction aborted."""
+        user = self._user_dict(
+            username="erin", keycloak_id="uid-4", municipalities=["mons"]
+        )
+        with api.env.adopt_roles(["Manager"]):
+            self._make_user("erin", "erin", "erin@example.com")
+            api.content.create(container=portal, type="Folder", id="mons", title="Mons")
+            with patch(
+                "pas.plugins.kimug.utils.get_sso_apps_users_with_municipalities",
+                return_value=[user],
+            ):
+                with patch("pas.plugins.kimug.utils.transaction") as mock_txn:
+                    mock_txn.commit.side_effect = ConflictError()
+                    utils.set_sso_apps_local_roles(portal)
+                    mock_txn.abort.assert_called_once()
+
+
 class TestSetOidcSettings:
     def test_conflict_error_is_handled(self, portal):
         """ConflictError on commit must be caught and transaction aborted — no exception raised."""

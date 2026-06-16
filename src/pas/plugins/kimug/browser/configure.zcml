@@ -44,6 +44,14 @@
       />
 
   <browser:page
+      name="set_sso_apps_permissions"
+      for="plone.base.interfaces.IPloneSiteRoot"
+      class=".view.SetSSOAppsPermissionsView"
+      permission="cmf.ManagePortal"
+      layer="pas.plugins.kimug.interfaces.IBrowserLayer"
+      />
+
+  <browser:page
       name="toggle_debug_mode"
       for="plone.base.interfaces.IPloneSiteRoot"
       class=".view.ToggleDebugModeView"

@@ -112,6 +112,20 @@
                 >
                   <span i18n:translate="">Add users from Keycloak sso apps in Plone</span>
                 </a>
+                <a class="btn btn-secondary mb-3"
+                   tal:attributes="
+                     href string:${context/absolute_url}/@@set_sso_apps_permissions?_authenticator=${context/@@authenticator/token};
+                   "
+                >
+                  <span i18n:translate="">Set sso-apps users local roles on their municipality folder</span>
+                </a>
+                <a class="btn btn-outline-secondary mb-3 ml-2"
+                   tal:attributes="
+                     href string:${context/absolute_url}/@@set_sso_apps_permissions?dry-run=1&amp;_authenticator=${context/@@authenticator/token};
+                   "
+                >
+                  <span i18n:translate="">Set sso-apps users local roles on their municipality folder Dry-run (report only, no changes)</span>
+                </a>
                 <h3 class="h6 text-uppercase text-muted"
                     i18n:translate=""
                 >Settings</h3>
