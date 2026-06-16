@@ -493,11 +493,17 @@ class TestGetKeycloakUsersFromOidcSsoApps:
 
 
 class TestMunicipalityFromGroupName:
-    def test_strips_pl_prefix(self):
-        assert utils._municipality_from_group_name("pl_belleville") == "belleville"
+    def test_strips_pl_prefix_and_type_suffix(self):
+        assert utils._municipality_from_group_name("pl_amay-ac") == "amay"
+
+    def test_cpas_variant_yields_same_slug_as_ac(self):
+        assert utils._municipality_from_group_name("pl_amay-cpas") == "amay"
 
     def test_strips_leading_slash_path(self):
-        assert utils._municipality_from_group_name("/pl_belleville") == "belleville"
+        assert utils._municipality_from_group_name("/pl_amay-ac") == "amay"
+
+    def test_multi_segment_type_is_stripped(self):
+        assert utils._municipality_from_group_name("pl_imio-ic-demo-client") == "imio"
 
     def test_non_pl_group_returns_none(self):
         assert utils._municipality_from_group_name("access_imio-apps-kimug") is None
@@ -534,11 +540,11 @@ class TestGetSsoAppsUsersWithMunicipalities:
         return user
 
     def test_attaches_municipality(self, portal):
-        """The 'pl_<localite>' group is stripped to a municipality slug."""
+        """The 'pl_<municipality>-<type>' group is stripped to a municipality slug."""
         self._configure_plugin()
         base_users = [self._base_user()]
         user_groups = [
-            {"id": "g1", "name": "pl_belleville", "path": "/pl_belleville"},
+            {"id": "g1", "name": "pl_belleville-ac", "path": "/pl_belleville-ac"},
             {"id": "g2", "name": "access_imio-apps-kimug"},
         ]
         with patch(
@@ -555,13 +561,14 @@ class TestGetSsoAppsUsersWithMunicipalities:
         assert result == [{**base_users[0], "municipalities": ["belleville"]}]
 
     def test_multiple_municipalities_deduplicated(self, portal):
-        """A user in several 'pl_' groups gets all slugs; duplicates collapse; paths handled."""
+        """A user in several 'pl_' groups gets all slugs; AC/CPAS variants of the
+        same locality collapse to one slug; paths handled."""
         self._configure_plugin()
         base_users = [self._base_user(username="bob", keycloak_id="uid-2")]
         user_groups = [
-            {"name": "pl_belleville"},
-            {"name": "/pl_another"},
-            {"name": "pl_belleville"},
+            {"name": "pl_belleville-ac"},
+            {"name": "/pl_another-ic"},
+            {"name": "pl_belleville-cpas"},
             {"name": "some-other-group"},
         ]
         with patch(

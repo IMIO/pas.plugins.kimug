@@ -905,18 +905,22 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
 
 
 def _municipality_from_group_name(name):
-    """Return the municipality slug for a Keycloak group named 'pl_<localite>'.
+    """Return the municipality slug for a Keycloak group named 'pl_<municipality>-<type>'.
 
-    Keycloak may return the group as a leaf name ('pl_belleville') or as a path
-    ('/pl_belleville'); both are handled. Returns None for groups that do not
-    follow the 'pl_' convention.
+    Group names follow the 'pl_<municipality>-<type>' convention, e.g. 'pl_amay-ac',
+    'pl_amay-cpas', 'pl_imio-ic-demo-client'. The municipality is the segment between
+    the 'pl_' prefix and the first hyphen; everything after the first hyphen is the
+    entity type (ac, cpas, ic, prov, zs, ...). Keycloak may return the group as a leaf
+    name ('pl_amay-ac') or as a path ('/pl_amay-ac'); both are handled. Returns None for
+    groups that do not follow the 'pl_' convention.
     """
     if not name:
         return None
     name = name.lstrip("/")
-    if name.startswith("pl_"):
-        return name[3:]
-    return None
+    if not name.startswith("pl_"):
+        return None
+    municipality = name[3:].split("-", 1)[0]
+    return municipality or None
 
 
 def get_sso_apps_users_with_municipalities(timeout: int = 30):
