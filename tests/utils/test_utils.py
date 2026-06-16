@@ -492,6 +492,135 @@ class TestGetKeycloakUsersFromOidcSsoApps:
         assert usernames == ["alice", "bob"]
 
 
+class TestMunicipalityFromGroupName:
+    def test_strips_pl_prefix(self):
+        assert utils._municipality_from_group_name("pl_belleville") == "belleville"
+
+    def test_strips_leading_slash_path(self):
+        assert utils._municipality_from_group_name("/pl_belleville") == "belleville"
+
+    def test_non_pl_group_returns_none(self):
+        assert utils._municipality_from_group_name("access_imio-apps-kimug") is None
+
+    def test_empty_or_none_returns_none(self):
+        assert utils._municipality_from_group_name("") is None
+        assert utils._municipality_from_group_name(None) is None
+
+
+class TestGetSsoAppsUsersWithMunicipalities:
+    def _configure_plugin(self):
+        plugin = utils.get_plugin("oidc_sso_apps")
+        plugin.issuer = "https://sso.example.com/realms/sso-apps"
+        plugin.client_id = "test-client"
+        plugin.client_secret = "test-secret"
+        plugin.municipality_groups = ()
+        return plugin
+
+    def _mock_response(self, data):
+        resp = MagicMock()
+        resp.json.return_value = data
+        resp.raise_for_status.return_value = None
+        return resp
+
+    def _base_user(self, **overrides):
+        user = {
+            "username": "alice",
+            "email": "alice@example.com",
+            "keycloak_id": "uid-1",
+            "firstName": "Alice",
+            "lastName": "Smith",
+        }
+        user.update(overrides)
+        return user
+
+    def test_attaches_municipality(self, portal):
+        """The 'pl_<localite>' group is stripped to a municipality slug."""
+        self._configure_plugin()
+        base_users = [self._base_user()]
+        user_groups = [
+            {"id": "g1", "name": "pl_belleville", "path": "/pl_belleville"},
+            {"id": "g2", "name": "access_imio-apps-kimug"},
+        ]
+        with patch(
+            "pas.plugins.kimug.utils.get_keycloak_users_from_oidc_sso_apps",
+            return_value=base_users,
+        ):
+            with patch(
+                "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+            ):
+                with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                    mock_get.side_effect = [self._mock_response(user_groups)]
+                    result = utils.get_sso_apps_users_with_municipalities()
+
+        assert result == [{**base_users[0], "municipalities": ["belleville"]}]
+
+    def test_multiple_municipalities_deduplicated(self, portal):
+        """A user in several 'pl_' groups gets all slugs; duplicates collapse; paths handled."""
+        self._configure_plugin()
+        base_users = [self._base_user(username="bob", keycloak_id="uid-2")]
+        user_groups = [
+            {"name": "pl_belleville"},
+            {"name": "/pl_another"},
+            {"name": "pl_belleville"},
+            {"name": "some-other-group"},
+        ]
+        with patch(
+            "pas.plugins.kimug.utils.get_keycloak_users_from_oidc_sso_apps",
+            return_value=base_users,
+        ):
+            with patch(
+                "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+            ):
+                with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                    mock_get.side_effect = [self._mock_response(user_groups)]
+                    result = utils.get_sso_apps_users_with_municipalities()
+
+        assert result[0]["municipalities"] == ["belleville", "another"]
+
+    def test_no_pl_group_yields_empty_municipalities(self, portal):
+        """A user with no 'pl_' group gets an empty municipalities list."""
+        self._configure_plugin()
+        base_users = [self._base_user(username="carol", keycloak_id="uid-3")]
+        user_groups = [{"name": "access_imio-apps-kimug"}]
+        with patch(
+            "pas.plugins.kimug.utils.get_keycloak_users_from_oidc_sso_apps",
+            return_value=base_users,
+        ):
+            with patch(
+                "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+            ):
+                with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                    mock_get.side_effect = [self._mock_response(user_groups)]
+                    result = utils.get_sso_apps_users_with_municipalities()
+
+        assert result[0]["municipalities"] == []
+
+    def test_no_users_returns_empty_list(self, portal):
+        """If no eligible sso-apps users, return [] without further calls."""
+        with patch(
+            "pas.plugins.kimug.utils.get_keycloak_users_from_oidc_sso_apps",
+            return_value=[],
+        ):
+            result = utils.get_sso_apps_users_with_municipalities()
+        assert result == []
+
+    def test_request_exception_returns_empty_list(self, portal):
+        """A RequestException while fetching user groups is caught and [] returned."""
+        self._configure_plugin()
+        base_users = [self._base_user(username="dave", keycloak_id="uid-4")]
+        with patch(
+            "pas.plugins.kimug.utils.get_keycloak_users_from_oidc_sso_apps",
+            return_value=base_users,
+        ):
+            with patch(
+                "pas.plugins.kimug.utils.get_client_access_token", return_value="tok"
+            ):
+                with patch("pas.plugins.kimug.utils.requests.get") as mock_get:
+                    mock_get.side_effect = requests.exceptions.RequestException("boom")
+                    result = utils.get_sso_apps_users_with_municipalities()
+        assert result == []
+
+
 class TestSetOidcSettings:
     def test_conflict_error_is_handled(self, portal):
         """ConflictError on commit must be caught and transaction aborted — no exception raised."""

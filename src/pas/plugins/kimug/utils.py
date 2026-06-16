@@ -904,6 +904,88 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
         return []
 
 
+def _municipality_from_group_name(name):
+    """Return the municipality slug for a Keycloak group named 'pl_<localite>'.
+
+    Keycloak may return the group as a leaf name ('pl_belleville') or as a path
+    ('/pl_belleville'); both are handled. Returns None for groups that do not
+    follow the 'pl_' convention.
+    """
+    if not name:
+        return None
+    name = name.lstrip("/")
+    if name.startswith("pl_"):
+        return name[3:]
+    return None
+
+
+def get_sso_apps_users_with_municipalities(timeout: int = 30):
+    """Get SSO apps users (filtered by access group) with their municipality slugs.
+
+    Builds on get_keycloak_users_from_oidc_sso_apps (which applies the
+    SSO_APPS_ACCESS_GROUP / SSO_APPS_MUNICIPALITY_GROUPS filtering) and attaches,
+    for each user, the list of municipality slugs derived from their
+    'pl_<localite>' Keycloak groups.
+
+    Returns a list of dicts with the same keys as
+    get_keycloak_users_from_oidc_sso_apps plus a "municipalities" list, e.g.
+    {username, email, keycloak_id, firstName, lastName, municipalities: [...]}.
+    Returns [] on any error.
+    """
+    users = get_keycloak_users_from_oidc_sso_apps(timeout=timeout)
+    if not users:
+        return []
+
+    oidc_sso_apps = get_plugin("oidc_sso_apps")
+    if not oidc_sso_apps:
+        logger.error("OIDC SSO Apps plugin not found")
+        return []
+    issuer = oidc_sso_apps.issuer
+    issuer_parsed = urlparse(issuer) if issuer else None
+    if not issuer_parsed or not issuer_parsed.scheme or not issuer_parsed.netloc:
+        logger.error("OIDC SSO Apps issuer is not a valid URL")
+        return []
+
+    realm = "sso-apps"
+    keycloak_url = f"{issuer_parsed.scheme}://{issuer_parsed.netloc}/"
+    access_token = get_client_access_token(
+        keycloak_url, realm, oidc_sso_apps.client_id, oidc_sso_apps.client_secret
+    )
+    if access_token is None:
+        logger.error(
+            "Could not get access token from Keycloak with OIDC settings for sso-apps plugin"
+        )
+        return []
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    enriched = []
+    try:
+        for user in users:
+            keycloak_id = user.get("keycloak_id")
+            municipalities = []
+            if keycloak_id:
+                groups_url = (
+                    f"{keycloak_url}admin/realms/{realm}/users/{keycloak_id}/groups"
+                )
+                response = requests.get(
+                    url=groups_url, headers=headers, timeout=timeout
+                )
+                response.raise_for_status()
+                for group in response.json():
+                    municipality = _municipality_from_group_name(group.get("name"))
+                    if municipality and municipality not in municipalities:
+                        municipalities.append(municipality)
+            enriched.append({**user, "municipalities": municipalities})
+        logger.info(f"Resolved municipalities for {len(enriched)} sso-apps users")
+        return enriched
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching user groups from Keycloak: {e}")
+        return []
+    except ValueError as e:
+        logger.error(f"Error parsing user groups response: {e}")
+        return []
+
+
 def add_keycloak_users_to_plone(users):
     """Add Keycloak users to Plone if they do not already exist."""
     oidc = get_plugin("oidc")

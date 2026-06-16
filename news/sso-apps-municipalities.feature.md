@@ -1,0 +1,1 @@
+Add `get_sso_apps_users_with_municipalities` utility (and the `_municipality_from_group_name` helper) that returns each access-group sso-apps user enriched with the municipality slugs derived from their `pl_<localite>` Keycloak groups. Intended to be called from a maintenance runscript that grants those users local roles on the matching Plone root folder. [remdub]
