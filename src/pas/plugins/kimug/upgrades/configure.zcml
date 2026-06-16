@@ -57,4 +57,12 @@
       handler=".disable_oidc_sso_apps_challenge"
       />
 
+  <genericsetup:upgradeStep
+      title="Remove pas.plugins.imio and authentic plugin"
+      profile="pas.plugins.kimug:default"
+      source="1005"
+      destination="1006"
+      handler=".remove_pas_plugins_imio"
+      />
+
 </configure>

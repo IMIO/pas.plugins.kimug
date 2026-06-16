@@ -533,7 +533,11 @@ def remove_authentic_plugin():
     """Remove the authentic plugin."""
 
     portal_setup = api.portal.get_tool("portal_setup")
-    portal_setup.runAllImportStepsFromProfile("profile-pas.plugins.imio:uninstall")
+    profile_id = "pas.plugins.imio:uninstall"
+    if portal_setup.profileExists(profile_id):
+        portal_setup.runAllImportStepsFromProfile(f"profile-{profile_id}")
+    else:
+        logger.info("pas.plugins.imio uninstall profile not available; skipping.")
 
     acl_users = api.portal.get_tool("acl_users")
     if "authentic" in acl_users.objectIds():

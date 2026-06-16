@@ -1,6 +1,7 @@
 from pas.plugins.kimug.setuphandlers import _add_plugin
 from pas.plugins.kimug.utils import add_keycloak_users_to_plone
 from pas.plugins.kimug.utils import get_keycloak_users_from_oidc_sso_apps
+from pas.plugins.kimug.utils import remove_authentic_plugin
 from pas.plugins.kimug.utils import set_oidc_settings
 from plone import api
 from Products.PluggableAuthService.interfaces.plugins import IChallengePlugin
@@ -42,3 +43,8 @@ def disable_oidc_sso_apps_challenge(context):
     active = [p[0] for p in pas.plugins.listPlugins(IChallengePlugin)]
     if "oidc_sso_apps" in active:
         pas.plugins.deactivatePlugin(IChallengePlugin, "oidc_sso_apps")
+
+
+def remove_pas_plugins_imio(context):
+    """Remove pas.plugins.imio and authentic plugin from acl_users."""
+    remove_authentic_plugin()
