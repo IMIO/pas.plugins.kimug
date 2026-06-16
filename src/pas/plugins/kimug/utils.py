@@ -794,7 +794,7 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
     if not oidc_sso_apps:
         logger.error("OIDC SSO Apps plugin not found")
         return []
-    realm = "sso-apps"
+    realm = os.environ.get("SSO_APPS_REALM", "sso-apps")
     issuer = oidc_sso_apps.issuer
     if not issuer:
         logger.error("OIDC SSO Apps issuer not set")
@@ -950,7 +950,7 @@ def get_sso_apps_users_with_municipalities(timeout: int = 30):
         logger.error("OIDC SSO Apps issuer is not a valid URL")
         return []
 
-    realm = "sso-apps"
+    realm = os.environ.get("SSO_APPS_REALM", "sso-apps")
     keycloak_url = f"{issuer_parsed.scheme}://{issuer_parsed.netloc}/"
     access_token = get_client_access_token(
         keycloak_url, realm, oidc_sso_apps.client_id, oidc_sso_apps.client_secret
