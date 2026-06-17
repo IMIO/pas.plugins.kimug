@@ -1,4 +1,4 @@
-## 1.7.0 (unreleased)
+## 1.7.0 (2026-06-17)
 
 
 ### New features:
