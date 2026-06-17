@@ -6,6 +6,7 @@ from pas.plugins.kimug.utils import get_keycloak_users_from_oidc
 from pas.plugins.kimug.utils import get_keycloak_users_from_oidc_sso_apps
 from pas.plugins.kimug.utils import migrate_plone_user_id_to_keycloak_user_id
 from pas.plugins.kimug.utils import set_oidc_settings
+from pas.plugins.kimug.utils import set_sso_apps_local_roles
 from pas.plugins.oidc import _
 from pas.plugins.oidc import plugins
 from pas.plugins.oidc import utils
@@ -63,6 +64,24 @@ class KeycloakSSOAppsUsersView(BrowserView):
         added_users = add_keycloak_users_to_plone(keycloak_users)
         api.portal.show_message(
             f"{added_users} Keycloak sso apps users imported", self.request
+        )
+        referer = self.request.get("HTTP_REFERER")
+        if referer:
+            self.request.response.redirect(referer)
+        else:
+            self.request.response.redirect(self.context.absolute_url())
+
+
+class SetSSOAppsPermissionsView(BrowserView):
+    def __call__(self):
+        dry_run = self.request.get("dry-run") in ("1", "true", "True", "on")
+        summary = set_sso_apps_local_roles(self.context, dry_run=dry_run)
+        api.portal.show_message(
+            f"sso-apps local roles {'(dry-run) ' if dry_run else ''}set: "
+            f"{len(summary['granted'])} grants, "
+            f"{len(summary['missing_user'])} users missing in Plone, "
+            f"{len(summary['no_folder'])} slugs without a folder",
+            self.request,
         )
         referer = self.request.get("HTTP_REFERER")
         if referer:

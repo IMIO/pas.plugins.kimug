@@ -794,7 +794,7 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
     if not oidc_sso_apps:
         logger.error("OIDC SSO Apps plugin not found")
         return []
-    realm = "sso-apps"
+    realm = os.environ.get("SSO_APPS_REALM", "sso-apps")
     issuer = oidc_sso_apps.issuer
     if not issuer:
         logger.error("OIDC SSO Apps issuer not set")
@@ -902,6 +902,226 @@ def get_keycloak_users_from_oidc_sso_apps(timeout: int = 30):
     except ValueError as e:
         logger.error(f"Error parsing users response: {e}")
         return []
+
+
+def _municipality_from_group_name(name):
+    """Return the municipality slug for a Keycloak group named 'pl_<municipality>-<type>'.
+
+    Group names follow the 'pl_<municipality>-<type>' convention, e.g. 'pl_amay-ac',
+    'pl_amay-cpas', 'pl_imio-ic-demo-client'. The municipality is the segment between
+    the 'pl_' prefix and the first hyphen; everything after the first hyphen is the
+    entity type (ac, cpas, ic, prov, zs, ...). Keycloak may return the group as a leaf
+    name ('pl_amay-ac') or as a path ('/pl_amay-ac'); both are handled. Returns None for
+    groups that do not follow the 'pl_' convention.
+    """
+    if not name:
+        return None
+    name = name.lstrip("/")
+    if not name.startswith("pl_"):
+        return None
+    municipality = name[3:].split("-", 1)[0]
+    return municipality or None
+
+
+def get_sso_apps_users_with_municipalities(timeout: int = 30):
+    """Get SSO apps users (filtered by access group) with their municipality slugs.
+
+    Builds on get_keycloak_users_from_oidc_sso_apps (which applies the
+    SSO_APPS_ACCESS_GROUP / SSO_APPS_MUNICIPALITY_GROUPS filtering) and attaches,
+    for each user, the list of municipality slugs derived from their
+    'pl_<localite>' Keycloak groups.
+
+    Returns a list of dicts with the same keys as
+    get_keycloak_users_from_oidc_sso_apps plus a "municipalities" list, e.g.
+    {username, email, keycloak_id, firstName, lastName, municipalities: [...]}.
+    Returns [] on any error.
+    """
+    users = get_keycloak_users_from_oidc_sso_apps(timeout=timeout)
+    if not users:
+        return []
+
+    oidc_sso_apps = get_plugin("oidc_sso_apps")
+    if not oidc_sso_apps:
+        logger.error("OIDC SSO Apps plugin not found")
+        return []
+    issuer = oidc_sso_apps.issuer
+    issuer_parsed = urlparse(issuer) if issuer else None
+    if not issuer_parsed or not issuer_parsed.scheme or not issuer_parsed.netloc:
+        logger.error("OIDC SSO Apps issuer is not a valid URL")
+        return []
+
+    realm = os.environ.get("SSO_APPS_REALM", "sso-apps")
+    keycloak_url = f"{issuer_parsed.scheme}://{issuer_parsed.netloc}/"
+    access_token = get_client_access_token(
+        keycloak_url, realm, oidc_sso_apps.client_id, oidc_sso_apps.client_secret
+    )
+    if access_token is None:
+        logger.error(
+            "Could not get access token from Keycloak with OIDC settings for sso-apps plugin"
+        )
+        return []
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    enriched = []
+    try:
+        for user in users:
+            keycloak_id = user.get("keycloak_id")
+            municipalities = []
+            if keycloak_id:
+                groups_url = (
+                    f"{keycloak_url}admin/realms/{realm}/users/{keycloak_id}/groups"
+                )
+                response = requests.get(
+                    url=groups_url, headers=headers, timeout=timeout
+                )
+                response.raise_for_status()
+                for group in response.json():
+                    municipality = _municipality_from_group_name(group.get("name"))
+                    if municipality and municipality not in municipalities:
+                        municipalities.append(municipality)
+            enriched.append({**user, "municipalities": municipalities})
+        logger.info(f"Resolved municipalities for {len(enriched)} sso-apps users")
+        return enriched
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching user groups from Keycloak: {e}")
+        return []
+    except ValueError as e:
+        logger.error(f"Error parsing user groups response: {e}")
+        return []
+
+
+SSO_APPS_LOCAL_ROLES = ("Contributor", "Editor", "Reader")
+
+
+def resolve_sso_apps_userid(user):
+    """Return the Plone userid for an sso-apps user, or None if absent in Plone.
+
+    sso-apps users are created with their keycloak_id as the Plone userid
+    (see add_keycloak_users_to_plone / oidc._create_user), but resolve via the
+    username first so we use whatever id Plone actually stored.
+    """
+    member = api.user.get(username=user.get("username"))
+    if member is not None:
+        return member.getId()
+    keycloak_id = user.get("keycloak_id")
+    if keycloak_id and api.user.get(userid=keycloak_id) is not None:
+        return keycloak_id
+    return None
+
+
+def set_sso_apps_local_roles(portal=None, dry_run=False):
+    """Grant sso-apps users local roles on their municipality root folder.
+
+    For every Keycloak sso-apps user that holds the configured access group
+    (SSO_APPS_ACCESS_GROUP), read their ``pl_<localite>`` groups and, when a
+    Plone root object exists with id exactly ``<localite>``, grant the user the
+    Contributor/Editor/Reader local roles on that folder.
+
+    The operation is idempotent (roles are merged, never overwritten) and safe
+    to re-run. Returns a summary dict with the keys ``granted``, ``no_group``,
+    ``no_folder``, ``missing_user`` and ``dry_run``.
+    """
+    if portal is None:
+        portal = api.portal.get()
+
+    users = get_sso_apps_users_with_municipalities()
+    logger.info(f"Fetched {len(users)} sso-apps users from Keycloak")
+    root_ids = set(portal.objectIds())
+
+    granted = []  # (username, userid, localite)
+    no_group = []  # username
+    no_folder = []  # (username, localite)
+    missing_user = []  # username
+
+    for user in users:
+        username = user.get("username")
+        userid = resolve_sso_apps_userid(user)
+        if userid is None:
+            missing_user.append(username)
+            logger.warning(f"User '{username}' not found in Plone, skipping")
+            continue
+
+        municipalities = user.get("municipalities") or []
+        if not municipalities:
+            no_group.append(username)
+            continue
+
+        for localite in municipalities:
+            if localite not in root_ids:
+                no_folder.append((username, localite))
+                continue
+            folder = portal[localite]
+            current = set(folder.get_local_roles_for_userid(userid))
+            new_roles = sorted(current | set(SSO_APPS_LOCAL_ROLES))
+            if not dry_run:
+                folder.manage_setLocalRoles(userid, new_roles)
+                folder.reindexObjectSecurity()
+            granted.append((username, userid, localite))
+            logger.info(
+                f"{'[dry-run] would grant' if dry_run else 'Granted'} "
+                f"{list(SSO_APPS_LOCAL_ROLES)} to '{username}' ({userid}) on /{localite}"
+            )
+
+    logger.info("=== sso-apps local roles summary ===")
+    logger.info(f"Granted on a folder : {len(granted)}")
+    logger.info(f"Users without pl_ group : {len(no_group)} -> {sorted(no_group)}")
+    logger.info(
+        f"Municipality slugs without matching root folder : {len(no_folder)} -> "
+        f"{sorted(no_folder)}"
+    )
+    logger.info(
+        f"Users missing in Plone : {len(missing_user)} -> {sorted(missing_user)}"
+    )
+
+    if dry_run:
+        logger.info("Dry-run: no changes committed")
+    else:
+        try:
+            transaction.commit()
+            logger.info("Transaction committed")
+        except ConflictError:
+            transaction.abort()
+            logger.warning(
+                "ConflictError committing sso-apps local roles: another instance "
+                "already committed the same values; skipping."
+            )
+
+    return {
+        "granted": granted,
+        "no_group": no_group,
+        "no_folder": no_folder,
+        "missing_user": missing_user,
+        "dry_run": dry_run,
+    }
+
+
+def get_portal_from_zope_app(zope_app, user_id="admin"):
+    """Bootstrap a Zope ``bin/instance run`` context and return the Plone site.
+
+    Sets up a request, authenticates as ``user_id`` and locates the first
+    Plone site under the Zope application root. Imports are local so this
+    runscript-only machinery is not pulled into normal request handling.
+    """
+    from AccessControl.SecurityManagement import newSecurityManager
+    from Products.CMFPlone.interfaces.siteroot import IPloneSiteRoot
+    from Testing import makerequest
+    from zope.globalrequest import setRequest
+
+    zope_app = makerequest.makerequest(zope_app)
+    zope_app.REQUEST["PARENTS"] = [zope_app]
+    setRequest(zope_app.REQUEST)
+    user = zope_app.acl_users.getUser(user_id)
+    newSecurityManager(None, user.__of__(zope_app.acl_users))
+    portal = None
+    for oid in zope_app.objectIds():
+        obj = zope_app[oid]
+        if IPloneSiteRoot.providedBy(obj):
+            portal = obj
+            break
+    if not portal:
+        raise Exception("Can't find portal !")
+    setSite(portal)
+    return portal
 
 
 def add_keycloak_users_to_plone(users):
