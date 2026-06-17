@@ -134,14 +134,15 @@ classDiagram
 | Path (under `src/pas/plugins/kimug/`) | Purpose |
 |---|---|
 | `plugin/__init__.py` | `KimugPlugin` class: token extraction, JWT verification, JWKS caching, role assignment, user auto-creation |
-| `utils.py` | Keycloak admin REST API integration, user sync/migration, `set_oidc_settings` startup configuration, settings validation |
-| `browser/view.py` | Login/callback views and admin views (migration, user sync, debug toggle, Keycloak-hosted redirects) |
+| `utils.py` | Keycloak admin REST API integration, user sync/migration, `set_sso_apps_local_roles` (municipality local-role assignment), `set_oidc_settings` startup configuration, settings validation, legacy `authentic`/`pas.plugins.imio` cleanup |
+| `browser/view.py` | Login/callback views and admin views (migration, user sync, SSO-apps local roles, debug toggle, Keycloak-hosted redirects) |
+| `scripts/set_sso_apps_permissions.py` | Standalone `bin/instance run` runscript wrapping `set_sso_apps_local_roles` (supports `--dry-run`) |
 | `controlpanel/classic.py` | Control panel adapter and forms for both plugin instances |
 | `interfaces.py` | `IBrowserLayer`, `IKimugPlugin`, `IKimugSettings`, `IKimugSSOAppsSettings` |
-| `setuphandlers/__init__.py` | `post_install` handler: creates both plugins, applies settings, runs migration |
+| `setuphandlers/__init__.py` | `post_install` handler: creates both plugins, applies settings, runs migration, cleans up legacy `authentic` users |
 | `subscribers/configure.zcml` | Registers `set_oidc_settings` on `IDatabaseOpenedWithRoot` (Zope startup) |
-| `upgrades/` | GenericSetup upgrade steps (profile versions 1000 → 1005) |
-| `profiles/default/` | GenericSetup profile (registry, control panel, browser layer), version 1005 |
+| `upgrades/` | GenericSetup upgrade steps (profile versions 1000 → 1006) |
+| `profiles/default/` | GenericSetup profile (registry, control panel, browser layer), version 1006 |
 
 ## Authentication flows
 
@@ -301,6 +302,42 @@ flowchart TD
     L --> N
 ```
 
+### SSO-apps local roles on municipality folders
+
+`set_sso_apps_local_roles` (in `utils.py`, triggered by `@@set_sso_apps_permissions` or the `scripts/set_sso_apps_permissions.py` runscript) grants SSO-apps users `Contributor`, `Editor` and `Reader` **local roles** on the Plone root folder of each municipality they belong to.
+
+Municipalities are derived from the user's Keycloak groups, which follow the `pl_<municipality>-<type>` convention (`_municipality_from_group_name`). The municipality is the segment between the `pl_` prefix and the first hyphen, so the AC and CPAS variants of an organisation collapse to one slug — e.g. `pl_amay-ac` and `pl_amay-cpas` both map to `amay`. A Plone root object whose id matches the slug exactly receives the local roles.
+
+The operation is **idempotent**: existing local roles are merged with the new set (never overwritten), so re-running is safe. A `dry-run` mode reports what would change without writing anything or committing. The summary dict it returns (and logs) has the buckets:
+
+- `granted` — `(username, userid, municipality)` triples that received the roles;
+- `no_group` — users with no `pl_` group;
+- `no_folder` — `(username, municipality)` pairs whose slug has no matching root folder;
+- `missing_user` — users present in Keycloak (and in the access group) but absent from Plone.
+
+```mermaid
+flowchart TD
+    A["@@set_sso_apps_permissions / runscript"] --> B["get_sso_apps_users_with_municipalities()<br/>(access-group filtered + pl_ groups)"]
+    B --> C["collect Plone root folder ids"]
+    C --> D{"for each user:<br/>resolve_sso_apps_userid()"}
+    D -- not in Plone --> M["missing_user"]
+    D -- no pl_ group --> N["no_group"]
+    D -- has municipalities --> E{"for each municipality slug:<br/>root folder with that id?"}
+    E -- no --> F["no_folder"]
+    E -- yes --> G["merge {Contributor, Editor, Reader}<br/>with current local roles"]
+    G --> H{"dry-run?"}
+    H -- yes --> I["log only, no write"]
+    H -- no --> J["manage_setLocalRoles +<br/>reindexObjectSecurity"]
+    J --> K["transaction.commit()<br/>(ConflictError → abort)"]
+```
+
+The runscript is a thin shim so it can be dropped unchanged into every instance that needs it:
+
+```bash
+bin/instance -O Plone run scripts/set_sso_apps_permissions.py
+bin/instance -O Plone run scripts/set_sso_apps_permissions.py --dry-run
+```
+
 ### User migration
 
 `migrate_plone_user_id_to_keycloak_user_id` (in `utils.py`, triggered by `@@keycloak_migration` or at install time) converts legacy Plone accounts so their user id becomes the Keycloak id. Users are matched **by email**; everything attached to the old account follows the new id:
@@ -388,6 +425,7 @@ Action buttons (CSRF-protected with `plone.protect` authenticator tokens):
 
 - **Check settings** — `check_keycloak_settings(plugin)` requests a client-credentials token from Keycloak with the stored settings and, for `oidc`, verifies the configured redirect URIs against the Keycloak client; the result is shown as a success/danger alert.
 - **Import users** — triggers `@@keycloak_users` / `@@keycloak_sso_apps_users`.
+- **Set sso-apps users local roles on their municipality folder** — triggers `@@set_sso_apps_permissions`; a second button runs it in `dry-run` mode (report only, no changes).
 - **Toggle debug mode** — flips the `pas.plugins.kimug.log` registry record (`@@toggle_debug_mode`); when active, the plugin logs every extraction/verification/role decision.
 
 ## Browser views
@@ -403,6 +441,7 @@ All views live in `browser/view.py` and are registered in `browser/configure.zcm
 | `@@set_oidc_settings` | site root | Manage portal | Re-applies environment configuration |
 | `@@keycloak_users` | site root | Manage portal | Bulk-imports users from `allowed_groups` |
 | `@@keycloak_sso_apps_users` | site root | Manage portal | Bulk-imports SSO-apps users (with municipality filtering) |
+| `@@set_sso_apps_permissions` | site root | Manage portal | Grants SSO-apps users local roles on their municipality folder (accepts `dry-run`) |
 | `@@toggle_debug_mode` | site root | Manage portal | Toggles `pas.plugins.kimug.log` |
 | `@@new-user` | navigation root | Users and Groups | Redirects to `add_user_url` (Keycloak-hosted registration) |
 | `@@personal-information` | navigation root | Set own properties | Redirects to `personal_information_url` |
@@ -417,9 +456,9 @@ The package is auto-discovered by Plone via `z3c.autoinclude`. Installing the `p
 1. creates the `oidc` plugin (all PAS interfaces activated, moved to the end of each interface list);
 2. creates the `oidc_sso_apps` plugin with `challenge=False` (its `IChallengePlugin` activation is removed so interactive logins stay on `oidc`);
 3. runs `set_oidc_settings`;
-4. if all required environment variables are present (`varenvs_exist`) and the realm answers (`realm_exists`): fetches Keycloak users, runs the user-id migration and cleans up legacy `pas_plugins.authentic` users.
+4. if all required environment variables are present (`varenvs_exist`) and the realm answers (`realm_exists`): fetches Keycloak users, runs the user-id migration and cleans up legacy `authentic` users (`clean_authentic_users`).
 
-Profile version is **1005**. Upgrade history:
+Profile version is **1006**. Upgrade history:
 
 | Step | Action |
 |---|---|
@@ -428,6 +467,7 @@ Profile version is **1005**. Upgrade history:
 | 1002 → 1003 | Add the `oidc_sso_apps` plugin and sync its users |
 | 1003 → 1004 | Register the `pas.plugins.kimug.log` debug registry record |
 | 1004 → 1005 | Deactivate `IChallengePlugin` on `oidc_sso_apps` so `oidc` handles interactive login |
+| 1005 → 1006 | Remove `pas.plugins.imio` and the legacy `authentic` PAS plugin (`remove_pas_plugins_imio` → `remove_authentic_plugin`: runs the `pas.plugins.imio:uninstall` profile, deletes the `authentic` plugin, resets login/logout URLs to OIDC) |
 
 ## Testing
 

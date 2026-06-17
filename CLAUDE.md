@@ -64,13 +64,14 @@ JWKS caching (class-level on `KimugPlugin`): one `PyJWKClient` per plugin id, re
 | Path | Purpose |
 |------|---------|
 | `plugin/__init__.py` | `KimugPlugin` class: token extraction, JWT verification, JWKS caching, role assignment, user auto-creation |
-| `utils.py` | Keycloak admin REST API integration, user sync/migration, `set_oidc_settings` startup configuration, settings validation |
-| `browser/view.py` | Login/callback views and admin views (migration, user sync, `@@set_oidc_settings`, debug toggle, Keycloak-hosted redirects for new-user/personal-information/change-password) |
+| `utils.py` | Keycloak admin REST API integration, user sync/migration, `set_sso_apps_local_roles` (municipality local-role assignment), `set_oidc_settings` startup configuration, settings validation, legacy `authentic`/`pas.plugins.imio` cleanup |
+| `browser/view.py` | Login/callback views and admin views (migration, user sync, `@@set_sso_apps_permissions`, `@@set_oidc_settings`, debug toggle, Keycloak-hosted redirects for new-user/personal-information/change-password) |
+| `scripts/set_sso_apps_permissions.py` | Standalone `bin/instance run` runscript wrapping `set_sso_apps_local_roles` (supports `--dry-run`) |
 | `controlpanel/classic.py` | Control panel adapter and forms for both plugin instances (`@@kimug-controlpanel`) |
 | `interfaces.py` | `IBrowserLayer`, `IKimugPlugin`, `IKimugSettings`, `IKimugSSOAppsSettings` |
 | `setuphandlers/__init__.py` | `post_install` handler: creates both plugins, applies settings, runs migration |
 | `subscribers/configure.zcml` | Registers `set_oidc_settings` on `IDatabaseOpenedWithRoot` (Zope startup) |
-| `upgrades/` | GenericSetup upgrade steps (profile versions 1000 → 1005) |
+| `upgrades/` | GenericSetup upgrade steps (profile versions 1000 → 1006) |
 | `testing.py` | INTEGRATION_TESTING, FUNCTIONAL_TESTING, ACCEPTANCE_TESTING layers |
 
 ### Environment Variables
@@ -100,10 +101,10 @@ All configuration is environment-driven (set by puppet in production) and applie
 
 ### GenericSetup
 
-- Default profile at `profiles/default/` (version **1005**)
+- Default profile at `profiles/default/` (version **1006**)
 - Uninstall profile at `profiles/uninstall/`
-- Upgrade steps in `upgrades/` (1000 → 1005)
-- `post_install` creates both plugins (`oidc_sso_apps` without `IChallengePlugin`), runs `set_oidc_settings`, and if the required env vars are present runs the user-id migration
+- Upgrade steps in `upgrades/` (1000 → 1006); step **1005 → 1006** removes `pas.plugins.imio` and the legacy `authentic` PAS plugin (`remove_pas_plugins_imio` → `remove_authentic_plugin`)
+- `post_install` creates both plugins (`oidc_sso_apps` without `IChallengePlugin`), runs `set_oidc_settings`, and if the required env vars are present runs the user-id migration and cleans up legacy `authentic` users (`clean_authentic_users`)
 
 ## Key Patterns
 
