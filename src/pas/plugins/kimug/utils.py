@@ -990,7 +990,7 @@ def get_sso_apps_users_with_municipalities(timeout: int = 30):
         return []
 
 
-SSO_APPS_LOCAL_ROLES = ("Contributor", "Editor", "Reader")
+SSO_APPS_LOCAL_ROLES = ("Contributor", "Editor", "Reviewer", "Reader")
 
 
 def resolve_sso_apps_userid(user):

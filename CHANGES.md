@@ -1,7 +1,8 @@
 ## 1.7.2 (unreleased)
 
 
-- Nothing changed yet.
+- Add reviewer roles to sso-apps users
+  [remdub]
 
 
 ## 1.7.1 (2026-06-18)
