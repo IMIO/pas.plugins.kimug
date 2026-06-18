@@ -1,7 +1,12 @@
 ## 1.7.1 (unreleased)
 
 
-- Nothing changed yet.
+### Bug fixes:
+
+- Send an explicit `User-Agent` header when fetching Keycloak's JWKS: PyJWT's
+  `PyJWKClient` defaults to `Python-urllib/<ver>`, which the production Keycloak
+  WAF rejects with `403 Forbidden`, breaking Bearer-token verification. Each
+  JWKS client is now built with `User-Agent: pas.plugins.kimug`. [bsuttor]
 
 
 ## 1.7.0 (2026-06-17)

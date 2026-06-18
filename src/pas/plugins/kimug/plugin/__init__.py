@@ -22,6 +22,14 @@ logger = logging.getLogger("pas.plugins.kimug")
 logger.setLevel(logging.INFO)
 
 
+# Keycloak's WAF rejects the default ``Python-urllib/<ver>`` User-Agent that
+# PyJWT's PyJWKClient sends, returning HTTP 403 on the public JWKS endpoint
+# (production ``auth.imio-app.be`` only; staging/test have no such rule, which
+# is why the suite never reproduced it). Any non-urllib UA passes; set an
+# explicit, descriptive one.
+_JWKS_USER_AGENT = "pas.plugins.kimug"
+
+
 def manage_addKimugPlugin(context, id="oidc", title="", RESPONSE=None, **kw):
     """Create an instance of a Kimug Plugin."""
     plugin = KimugPlugin(id, title, **kw)
@@ -245,6 +253,7 @@ class KimugPlugin(OIDCPlugin):
                 cache_keys=True,
                 lifespan=cls._JWKS_CLIENT_TTL,
                 timeout=5,
+                headers={"User-Agent": _JWKS_USER_AGENT},
             )
             cls._jwks_clients_created_at[plugin] = now
         elif is_log_active():

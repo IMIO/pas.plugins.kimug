@@ -424,6 +424,11 @@ class TestPlugin:
         assert sso_client.uri == (
             "https://kc-sso.example.com/realms/sso-apps/protocol/openid-connect/certs"
         )
+        # An explicit, non-urllib User-Agent must be sent: Keycloak's prod WAF
+        # returns HTTP 403 for the default ``Python-urllib/<ver>`` UA.
+        assert "Python-urllib" not in oidc_client.headers.get("User-Agent", "")
+        assert oidc_client.headers.get("User-Agent")
+        assert sso_client.headers.get("User-Agent")
         # Same realm returns the cached instance rather than rebuilding.
         assert plugin._get_jwks_client(plugin="oidc") is oidc_client
         assert plugin._get_jwks_client(plugin="oidc_sso_apps") is sso_client
