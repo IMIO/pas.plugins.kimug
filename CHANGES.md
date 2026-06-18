@@ -1,4 +1,4 @@
-## 1.7.2 (unreleased)
+## 1.7.2 (2026-06-18)
 
 
 - Add reviewer roles to sso-apps users
