@@ -44,7 +44,7 @@ Key responsibilities:
 - **Provisioning** — auto-create Plone users on first Bearer login, bulk-import users from Keycloak groups, and migrate legacy Plone user ids to Keycloak ids.
 - **Configuration** — all settings are read from environment variables at Zope startup and applied to the plugins, with a Plone control panel for inspection and overrides.
 
-**Package facts** (from `setup.py`): version `1.6.4.dev0`, license GPLv2, Python 3.10–3.13, Plone 6.0/6.1. Dependencies: `pas.plugins.oidc>=2.0.0b4`, `python-keycloak`, `PyJWT[crypto]>=2.6`, `plone.api`, `Products.CMFPlone`.
+**Package facts** (from `setup.py`): version `1.7.3.dev0`, license GPLv2, Python 3.10–3.13, Plone 6.0/6.1. Dependencies: `pas.plugins.oidc>=2.0.0b4`, `python-keycloak`, `PyJWT[crypto]>=2.6`, `plone.api`, `Products.CMFPlone`.
 
 ## Architecture
 
@@ -261,6 +261,7 @@ Failure behaviour is deliberately graceful: any verification error returns `None
 
 - **Per-plugin client cache** — one `PyJWKClient` per plugin id (`oidc` / `oidc_sso_apps`), rebuilt after `_JWKS_CLIENT_TTL` (3600 s) so Keycloak key rotations are picked up without a restart. A single shared client would alternate between realms whose tokens never match the cached keyset, forcing a JWKS refetch on every request.
 - **Failure cooldown** — after a failed JWKS fetch, further fetches for that plugin are skipped for `_JWKS_FAILURE_COOLDOWN` (30 s). PyJWT clears its keyset cache on every failed fetch, so without this backoff a transient 403 from the Keycloak proxy becomes a self-sustaining retry storm.
+- **Explicit User-Agent** — each `PyJWKClient` is built with a `User-Agent: pas.plugins.kimug` header (`_JWKS_USER_AGENT`). PyJWT defaults to `Python-urllib/<ver>`, which the production Keycloak WAF rejects with `403 Forbidden`, silently breaking Bearer-token verification. Staging and test have no such WAF rule, which is why the test suite never reproduced it; any non-urllib UA passes.
 
 ## User provisioning
 
@@ -304,7 +305,7 @@ flowchart TD
 
 ### SSO-apps local roles on municipality folders
 
-`set_sso_apps_local_roles` (in `utils.py`, triggered by `@@set_sso_apps_permissions` or the `scripts/set_sso_apps_permissions.py` runscript) grants SSO-apps users `Contributor`, `Editor` and `Reader` **local roles** on the Plone root folder of each municipality they belong to.
+`set_sso_apps_local_roles` (in `utils.py`, triggered by `@@set_sso_apps_permissions` or the `scripts/set_sso_apps_permissions.py` runscript) grants SSO-apps users `Contributor`, `Editor`, `Reviewer` and `Reader` **local roles** on the Plone root folder of each municipality they belong to.
 
 Municipalities are derived from the user's Keycloak groups, which follow the `pl_<municipality>-<type>` convention (`_municipality_from_group_name`). The municipality is the segment between the `pl_` prefix and the first hyphen, so the AC and CPAS variants of an organisation collapse to one slug — e.g. `pl_amay-ac` and `pl_amay-cpas` both map to `amay`. A Plone root object whose id matches the slug exactly receives the local roles.
 
@@ -324,7 +325,7 @@ flowchart TD
     D -- no pl_ group --> N["no_group"]
     D -- has municipalities --> E{"for each municipality slug:<br/>root folder with that id?"}
     E -- no --> F["no_folder"]
-    E -- yes --> G["merge {Contributor, Editor, Reader}<br/>with current local roles"]
+    E -- yes --> G["merge {Contributor, Editor, Reviewer, Reader}<br/>with current local roles"]
     G --> H{"dry-run?"}
     H -- yes --> I["log only, no write"]
     H -- no --> J["manage_setLocalRoles +<br/>reindexObjectSecurity"]

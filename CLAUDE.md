@@ -57,7 +57,7 @@ PAS interfaces implemented:
 - `IRolesPlugin` — assigns `Member` to all; adds `Manager` if user is in `{application_id}-admin` group AND has `@imio.be` email
 - `IChallengePlugin` — redirects to Keycloak login (active on `oidc` only)
 
-JWKS caching (class-level on `KimugPlugin`): one `PyJWKClient` per plugin id, rebuilt after `_JWKS_CLIENT_TTL` (3600 s) to pick up key rotations, plus a `_JWKS_FAILURE_COOLDOWN` (30 s) backoff after failed fetches. Verification failures return `None` (PAS falls through), never HTTP 500.
+JWKS caching (class-level on `KimugPlugin`): one `PyJWKClient` per plugin id, rebuilt after `_JWKS_CLIENT_TTL` (3600 s) to pick up key rotations, plus a `_JWKS_FAILURE_COOLDOWN` (30 s) backoff after failed fetches. Each client is built with an explicit `User-Agent: pas.plugins.kimug` header (`_JWKS_USER_AGENT`): PyJWT's default `Python-urllib/<ver>` UA is rejected with `403 Forbidden` by the production Keycloak WAF. Verification failures return `None` (PAS falls through), never HTTP 500.
 
 ### Key Modules
 
