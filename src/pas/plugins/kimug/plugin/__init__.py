@@ -403,7 +403,9 @@ class KimugPlugin(OIDCPlugin):
         # Grant the plugin-wide role. Done in its own try/except so a failure
         # here never breaks user creation / login.
         try:
-            api.user.grant_roles(userid=userid, roles=[KIMUG_AUTHENTICATED_ROLE])
+            member = api.user.get(userid=userid)
+            if member is not None:
+                api.user.grant_roles(user=member, roles=[KIMUG_AUTHENTICATED_ROLE])
         except Exception as e:
             logger.error(
                 "Could not grant %s to %s: %s", KIMUG_AUTHENTICATED_ROLE, userid, e

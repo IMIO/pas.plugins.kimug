@@ -107,6 +107,10 @@ def portal(
     with api.env.adopt_roles(["Manager", "Member"]):
         for key, value in keycloak.items():
             setattr(plugin, key, value)
+        # Tests must not inherit a restrictive allowed_groups from the
+        # developer's shell (set_oidc_settings reads keycloak_allowed_groups at
+        # layer setup). Reset to the package default (no restriction).
+        plugin.allowed_groups = ()
         # for key, value in keycloak_api.items():
         #     name = f"keycloak_groups.{key}"
         #     api.portal.set_registry_record(name, value)
