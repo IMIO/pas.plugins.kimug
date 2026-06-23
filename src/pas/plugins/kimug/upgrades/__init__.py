@@ -1,3 +1,4 @@
+from pas.plugins.kimug.plugin import KIMUG_AUTHENTICATED_ROLE
 from pas.plugins.kimug.setuphandlers import _add_plugin
 from pas.plugins.kimug.utils import add_keycloak_users_to_plone
 from pas.plugins.kimug.utils import get_keycloak_users_from_oidc_sso_apps
@@ -48,3 +49,18 @@ def disable_oidc_sso_apps_challenge(context):
 def remove_pas_plugins_imio(context):
     """Remove pas.plugins.imio and authentic plugin from acl_users."""
     remove_authentic_plugin()
+
+
+def grant_kimug_authenticated_role(context):
+    """Grant 'Kimug Authenticated Users' to existing plugin-created users.
+
+    Users created by the plugin all have an ``@kimug.be`` email, so that is
+    used to distinguish them from other (e.g. local) Plone users.
+    """
+    count = 0
+    for user in api.user.get_users():
+        email = user.getProperty("email") or ""
+        if email.endswith("@kimug.be"):
+            api.user.grant_roles(user=user, roles=[KIMUG_AUTHENTICATED_ROLE])
+            count += 1
+    logger.info("Granted '%s' to %s plugin users", KIMUG_AUTHENTICATED_ROLE, count)

@@ -28,22 +28,27 @@ class TestUsergroupUserPrefsView:
         <th class="text-start">User name</th>,
         <th class="rotate"><div>Contributor</div></th>,
         <th class="rotate"><div>Editor</div></th>,
+        <th class="rotate"><div>Kimug Authenticated Users</div></th>
         <th class="rotate"><div>Member</div></th>,
         <th class="rotate"><div>Reader</div></th>,
         <th class="rotate"><div>Reviewer</div></th>,
         <th class="rotate"><div>Site Administrator</div></th>,
         <th class="rotate"><div>Manager</div></th>
         """
-        assert len(headers) == 8
-        expected_headers = [
-            "User name",
-            "Contributor",
-            "Editor",
-            "Member",
-            "Reader",
-            "Reviewer",
-            "Site Administrator",
-            "Manager",
-        ]
-        for index, header in enumerate(headers):
-            assert header.get_text(strip=True) == expected_headers[index]
+        assert len(headers) == 9
+        expected_headers = sorted(
+            [
+                "User name",
+                "Contributor",
+                "Editor",
+                "Member",
+                "Kimug Authenticated Users",
+                "Reader",
+                "Reviewer",
+                "Site Administrator",
+                "Manager",
+            ]
+        )
+        actual_headers = sorted(h.get_text(strip=True) for h in headers)
+
+        assert actual_headers == expected_headers

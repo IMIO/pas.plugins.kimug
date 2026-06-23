@@ -11,6 +11,14 @@
       directory="profiles/1003_to_1004"
       />
 
+  <genericsetup:registerProfile
+      name="upgrade_1006_to_1007"
+      title="Upgrade core from 1006 to 1007"
+      description="Add Kimug Authenticated Users role"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      directory="profiles/1006_to_1007"
+      />
+
   <genericsetup:upgradeStep
       title="Remove authentic users"
       profile="pas.plugins.kimug:default"
@@ -64,5 +72,20 @@
       destination="1006"
       handler=".remove_pas_plugins_imio"
       />
+
+  <genericsetup:upgradeSteps
+      profile="pas.plugins.kimug:default"
+      source="1006"
+      destination="1007"
+      >
+    <genericsetup:upgradeDepends
+        title="Add Kimug Authenticated Users role"
+        import_profile="pas.plugins.kimug.upgrades:upgrade_1006_to_1007"
+        />
+    <genericsetup:upgradeStep
+        title="Grant Kimug Authenticated Users role to existing plugin users"
+        handler=".grant_kimug_authenticated_role"
+        />
+  </genericsetup:upgradeSteps>
 
 </configure>

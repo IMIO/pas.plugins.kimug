@@ -1,7 +1,9 @@
 ## 1.7.3 (unreleased)
 
 
-- Nothing changed yet.
+- Add Kimug Authenticated Users role and grant it to plugin-created users
+  (new users on creation, existing users via the 1006→1007 upgrade step).
+  [boulch, remdub]
 
 
 ## 1.7.2 (2026-06-18)

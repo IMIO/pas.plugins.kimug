@@ -16,7 +16,11 @@ class TestSetupInstall:
 
     def test_latest_version(self, profile_last_version):
         """Test latest version of default profile."""
-        assert profile_last_version(f"{PACKAGE_NAME}:default") == "1006"
+        assert profile_last_version(f"{PACKAGE_NAME}:default") == "1007"
+
+    def test_kimug_authenticated_role_registered(self, portal):
+        """The 'Kimug Authenticated Users' role must be defined by the profile."""
+        assert "Kimug Authenticated Users" in portal.valid_roles()
 
     def test_acl_users_plugin(self, portal):
         """Test active plugin of acl_users."""

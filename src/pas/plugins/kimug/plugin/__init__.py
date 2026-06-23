@@ -30,6 +30,10 @@ logger.setLevel(logging.INFO)
 _JWKS_USER_AGENT = "pas.plugins.kimug"
 
 
+# Global role granted to every user created by this plugin (see rolemap.xml).
+KIMUG_AUTHENTICATED_ROLE = "Kimug Authenticated Users"
+
+
 def manage_addKimugPlugin(context, id="oidc", title="", RESPONSE=None, **kw):
     """Create an instance of a Kimug Plugin."""
     plugin = KimugPlugin(id, title, **kw)
@@ -395,6 +399,16 @@ class KimugPlugin(OIDCPlugin):
                 userid,
                 userinfo,
                 e,
+            )
+        # Grant the plugin-wide role. Done in its own try/except so a failure
+        # here never breaks user creation / login.
+        try:
+            member = api.user.get(userid=userid)
+            if member is not None:
+                api.user.grant_roles(user=member, roles=[KIMUG_AUTHENTICATED_ROLE])
+        except Exception as e:
+            logger.error(
+                "Could not grant %s to %s: %s", KIMUG_AUTHENTICATED_ROLE, userid, e
             )
 
 

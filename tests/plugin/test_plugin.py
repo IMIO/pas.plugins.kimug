@@ -92,6 +92,19 @@ class TestPlugin:
         assert user is not None
         assert user.getProperty("email") == "new@example.com"
 
+    def test_ensure_user_exists_grants_kimug_authenticated_role(self, portal):
+        """A user created by the plugin must receive the Kimug Authenticated Users role."""
+        from pas.plugins.kimug.plugin import KIMUG_AUTHENTICATED_ROLE
+
+        plugin = portal.acl_users.oidc
+        with api.env.adopt_roles(["Manager"]):
+            plugin._ensure_user_exists(
+                "role-uid",
+                {"email": "role@example.com", "preferred_username": "role-user"},
+            )
+            user = api.user.get(userid="role-uid")
+        assert KIMUG_AUTHENTICATED_ROLE in user.getRoles()
+
     def test_ensure_user_exists_skips_existing_user(self, portal):
         """_ensure_user_exists should not modify an existing user."""
         plugin = portal.acl_users.oidc
