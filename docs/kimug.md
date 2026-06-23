@@ -39,12 +39,12 @@ Key responsibilities:
 
 - **Extraction** — pull `Authorization: Bearer <JWT>` tokens from requests (RFC 6750).
 - **Authentication** — fully verify the JWT (RS256 signature against Keycloak's JWKS, issuer, audience, expiry) and route it to the right plugin based on the token's issuer.
-- **Roles** — every Keycloak user gets `Member`; users in the `{application_id}-admin` group with an `@imio.be` email also get `Manager`.
+- **Roles** — every Keycloak user gets `Member`; users in the `{application_id}-admin` group with an `@imio.be` email also get `Manager`. Plugin-created users are additionally granted the global `Kimug Authenticated Users` role, which holds the `plone.restapi: Access Plone vocabularies` permission.
 - **Challenge** — unauthenticated browser users are redirected to the Keycloak login page.
 - **Provisioning** — auto-create Plone users on first Bearer login, bulk-import users from Keycloak groups, and migrate legacy Plone user ids to Keycloak ids.
 - **Configuration** — all settings are read from environment variables at Zope startup and applied to the plugins, with a Plone control panel for inspection and overrides.
 
-**Package facts** (from `setup.py`): version `1.7.3.dev0`, license GPLv2, Python 3.10–3.13, Plone 6.0/6.1. Dependencies: `pas.plugins.oidc>=2.0.0b4`, `python-keycloak`, `PyJWT[crypto]>=2.6`, `plone.api`, `Products.CMFPlone`.
+**Package facts** (from `setup.py`): version `1.8.1.dev0`, license GPLv2, Python 3.10–3.13, Plone 6.0/6.1. Dependencies: `pas.plugins.oidc>=2.0.0b4`, `python-keycloak`, `PyJWT[crypto]>=2.6`, `plone.api`, `Products.CMFPlone`.
 
 ## Architecture
 
@@ -141,8 +141,8 @@ classDiagram
 | `interfaces.py` | `IBrowserLayer`, `IKimugPlugin`, `IKimugSettings`, `IKimugSSOAppsSettings` |
 | `setuphandlers/__init__.py` | `post_install` handler: creates both plugins, applies settings, runs migration, cleans up legacy `authentic` users |
 | `subscribers/configure.zcml` | Registers `set_oidc_settings` on `IDatabaseOpenedWithRoot` (Zope startup) |
-| `upgrades/` | GenericSetup upgrade steps (profile versions 1000 → 1006) |
-| `profiles/default/` | GenericSetup profile (registry, control panel, browser layer), version 1006 |
+| `upgrades/` | GenericSetup upgrade steps (profile versions 1000 → 1007) |
+| `profiles/default/` | GenericSetup profile (registry, control panel, browser layer, rolemap), version 1007 |
 
 ## Authentication flows
 
@@ -271,6 +271,8 @@ When a verified token belongs to a user that does not yet exist in Plone, `_ensu
 
 - missing email → `{username}@kimug.be`
 - missing first and last name → first name = username, last name = `sso-apps`
+
+The newly created user is then granted the global `Kimug Authenticated Users` role (`KIMUG_AUTHENTICATED_ROLE`). This grant runs in its own try/except, so a failure there never blocks user creation or login.
 
 Creation failures are logged but never block authentication.
 
@@ -459,7 +461,7 @@ The package is auto-discovered by Plone via `z3c.autoinclude`. Installing the `p
 3. runs `set_oidc_settings`;
 4. if all required environment variables are present (`varenvs_exist`) and the realm answers (`realm_exists`): fetches Keycloak users, runs the user-id migration and cleans up legacy `authentic` users (`clean_authentic_users`).
 
-Profile version is **1006**. Upgrade history:
+Profile version is **1007**. Upgrade history:
 
 | Step | Action |
 |---|---|
@@ -469,6 +471,7 @@ Profile version is **1006**. Upgrade history:
 | 1003 → 1004 | Register the `pas.plugins.kimug.log` debug registry record |
 | 1004 → 1005 | Deactivate `IChallengePlugin` on `oidc_sso_apps` so `oidc` handles interactive login |
 | 1005 → 1006 | Remove `pas.plugins.imio` and the legacy `authentic` PAS plugin (`remove_pas_plugins_imio` → `remove_authentic_plugin`: runs the `pas.plugins.imio:uninstall` profile, deletes the `authentic` plugin, resets login/logout URLs to OIDC) |
+| 1006 → 1007 | Register the `Kimug Authenticated Users` role and grant it the `plone.restapi: Access Plone vocabularies` permission (rolemap profile `upgrade_1006_to_1007`), then grant the role to existing plugin-created users — those with an `@kimug.be` email (`grant_kimug_authenticated_role`) |
 
 ## Testing
 

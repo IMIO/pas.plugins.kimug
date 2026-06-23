@@ -53,7 +53,7 @@ The package installs **two instances** of the same `KimugPlugin` class (in `src/
 
 PAS interfaces implemented:
 - `IExtractionPlugin` — extracts `Authorization: Bearer <JWT>` tokens (RFC 6750)
-- `IAuthenticationPlugin` — fully verifies the JWT (RS256 signature against Keycloak's JWKS, issuer, audience, expiry) and routes it to the right plugin based on the token's `iss` claim; `sso-apps` tokens additionally require membership in `SSO_APPS_ACCESS_GROUP`; auto-creates Plone users on first Bearer login (`_ensure_user_exists`)
+- `IAuthenticationPlugin` — fully verifies the JWT (RS256 signature against Keycloak's JWKS, issuer, audience, expiry) and routes it to the right plugin based on the token's `iss` claim; `sso-apps` tokens additionally require membership in `SSO_APPS_ACCESS_GROUP`; auto-creates Plone users on first Bearer login (`_ensure_user_exists`) and grants them the global `Kimug Authenticated Users` role (`KIMUG_AUTHENTICATED_ROLE`, in its own try/except so a failure never blocks login)
 - `IRolesPlugin` — assigns `Member` to all; adds `Manager` if user is in `{application_id}-admin` group AND has `@imio.be` email
 - `IChallengePlugin` — redirects to Keycloak login (active on `oidc` only)
 
@@ -71,7 +71,7 @@ JWKS caching (class-level on `KimugPlugin`): one `PyJWKClient` per plugin id, re
 | `interfaces.py` | `IBrowserLayer`, `IKimugPlugin`, `IKimugSettings`, `IKimugSSOAppsSettings` |
 | `setuphandlers/__init__.py` | `post_install` handler: creates both plugins, applies settings, runs migration |
 | `subscribers/configure.zcml` | Registers `set_oidc_settings` on `IDatabaseOpenedWithRoot` (Zope startup) |
-| `upgrades/` | GenericSetup upgrade steps (profile versions 1000 → 1006) |
+| `upgrades/` | GenericSetup upgrade steps (profile versions 1000 → 1007) |
 | `testing.py` | INTEGRATION_TESTING, FUNCTIONAL_TESTING, ACCEPTANCE_TESTING layers |
 
 ### Environment Variables
@@ -101,9 +101,9 @@ All configuration is environment-driven (set by puppet in production) and applie
 
 ### GenericSetup
 
-- Default profile at `profiles/default/` (version **1006**)
+- Default profile at `profiles/default/` (version **1007**)
 - Uninstall profile at `profiles/uninstall/`
-- Upgrade steps in `upgrades/` (1000 → 1006); step **1005 → 1006** removes `pas.plugins.imio` and the legacy `authentic` PAS plugin (`remove_pas_plugins_imio` → `remove_authentic_plugin`)
+- Upgrade steps in `upgrades/` (1000 → 1007); step **1005 → 1006** removes `pas.plugins.imio` and the legacy `authentic` PAS plugin (`remove_pas_plugins_imio` → `remove_authentic_plugin`); step **1006 → 1007** registers the `Kimug Authenticated Users` role (rolemap) and grants it to existing plugin-created users — those with an `@kimug.be` email (`grant_kimug_authenticated_role`)
 - `post_install` creates both plugins (`oidc_sso_apps` without `IChallengePlugin`), runs `set_oidc_settings`, and if the required env vars are present runs the user-id migration and cleans up legacy `authentic` users (`clean_authentic_users`)
 
 ## Key Patterns
