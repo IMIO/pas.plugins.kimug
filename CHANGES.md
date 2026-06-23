@@ -1,5 +1,7 @@
-## 1.7.3 (unreleased)
+## 1.8.0 (2026-06-23)
 
+
+### New features:
 
 - Add Kimug Authenticated Users role and grant it to plugin-created users
   (new users on creation, existing users via the 1006→1007 upgrade step).
