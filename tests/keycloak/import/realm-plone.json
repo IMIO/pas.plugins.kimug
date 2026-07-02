@@ -403,7 +403,7 @@
     "disableableCredentialTypes" : [ ],
     "requiredActions" : [ ],
     "federatedIdentities" : [ {
-      "identityProvider" : "imio-idp",
+      "identityProvider" : "imio",
       "userId" : "91b22204-e398-44b7-9a1b-c210ede7e621",
       "userName" : "kimug"
     } ],
@@ -1399,7 +1399,7 @@
   "adminEventsEnabled" : false,
   "adminEventsDetailsEnabled" : false,
   "identityProviders" : [ {
-    "alias" : "imio-idp",
+    "alias" : "imio",
     "displayName" : "",
     "internalId" : "df81a175-060f-4157-9761-398e5c2a69fa",
     "providerId" : "keycloak-oidc",
@@ -1442,7 +1442,7 @@
   "identityProviderMappers" : [ {
     "id" : "14fd1c49-b764-4514-9e43-31557bf31ae1",
     "name" : "groups",
-    "identityProviderAlias" : "imio-idp",
+    "identityProviderAlias" : "imio",
     "identityProviderMapper" : "oidc-user-attribute-idp-mapper",
     "config" : {
       "syncMode" : "FORCE",
