@@ -202,52 +202,72 @@ def get_plugin(pluginid="oidc"):
     return plugin
 
 
-def get_keycloak_users():
-    """Get all keycloak users."""
-    realm = os.environ.get("keycloak_realm", None)
-    keycloak_url = os.environ.get("keycloak_url")
-    keycloak_admin_user = os.environ.get("keycloak_admin_user")
-    keycloak_admin_password = os.environ.get("keycloak_admin_password")
-    access_token = get_admin_access_token(
-        keycloak_url, keycloak_admin_user, keycloak_admin_password
+# Per-application migration behaviour, keyed on the `application_id` env var.
+# `extra_realms`: additional Keycloak realms to fetch users from (besides the
+# primary `keycloak_realm`). `clean_authentic`: whether to run the legacy
+# pas.plugins.imio / `authentic` cleanup after migration.
+DEFAULT_APP_MIGRATION = {"extra_realms": [], "clean_authentic": False}
+
+APP_MIGRATION_CONFIG = {
+    "iA.Smartweb": {"extra_realms": [], "clean_authentic": True},
+    "iA.Bibliotheca": {"extra_realms": [], "clean_authentic": False},
+}
+
+
+def get_app_migration_config():
+    """Return the migration config for the current `application_id`."""
+    app_id = os.environ.get("application_id", "iA.Smartweb")
+    return APP_MIGRATION_CONFIG.get(app_id, DEFAULT_APP_MIGRATION)
+
+
+def _get_keycloak_admin_token():
+    """Get an admin access token from the keycloak_admin_* env vars."""
+    return get_admin_access_token(
+        os.environ.get("keycloak_url"),
+        os.environ.get("keycloak_admin_user"),
+        os.environ.get("keycloak_admin_password"),
     )
+
+
+def _fetch_realm_users(realm, max_results=None, raise_on_error=False):
+    """Fetch raw user dicts from a Keycloak realm via the admin API.
+
+    Returns Keycloak's user list, or [] on failure unless raise_on_error is set.
+    """
+    access_token = _get_keycloak_admin_token()
     if not access_token:
         logger.error("Could not get access token from Keycloak")
         return []
-    kc_users = []
-    url = f"{keycloak_url}admin/realms/{realm}/users?max=100000"
+    keycloak_url = os.environ.get("keycloak_url")
+    url = f"{keycloak_url}admin/realms/{realm}/users"
+    if max_results is not None:
+        url = f"{url}?max={max_results}"
     headers = {"Authorization": "Bearer " + access_token}
     response = requests.get(url=url, headers=headers)
     if response.status_code == 200 and response.json():
-        kc_users.extend(response.json())
-    else:
+        return response.json()
+    if raise_on_error:
         logger.error(
             f"Error getting users from Keycloak realm {realm}: {response.json()}"
         )
         raise Exception(f"Could not get users from Keycloak realm {realm}")
+    return []
 
-    kc_users.extend(get_imio_users())
+
+def get_keycloak_users():
+    """Get all keycloak users from the primary realm plus configured extra realms."""
+    realm = os.environ.get("keycloak_realm", None)
+    kc_users = _fetch_realm_users(realm, max_results=100000, raise_on_error=True)
+    for extra_realm in get_app_migration_config()["extra_realms"]:
+        kc_users.extend(get_realm_users(extra_realm))
     logger.info(f"Users from Keycloak: {len(kc_users)}")
     return kc_users
 
 
-def get_imio_users():
-    realm = "imio"
-    keycloak_url = os.environ.get("keycloak_url")
-    keycloak_admin_user = os.environ.get("keycloak_admin_user")
-    keycloak_admin_password = os.environ.get("keycloak_admin_password")
-    access_token = get_admin_access_token(
-        keycloak_url, keycloak_admin_user, keycloak_admin_password
-    )
-    if not access_token:
-        logger.error("Could not get access token from Keycloak")
-        return []
-    url = f"{keycloak_url}admin/realms/{realm}/users"
-    headers = {"Authorization": "Bearer " + access_token}
-    response = requests.get(url=url, headers=headers)
-    if response.status_code == 200 and response.json():
-        kc_users = response.json()
-    logger.info(f"Users from Keycloak imio realm: {len(kc_users)}")
+def get_realm_users(realm):
+    """Get users from a secondary Keycloak realm (with a null Plone id)."""
+    kc_users = _fetch_realm_users(realm)
+    logger.info(f"Users from Keycloak {realm} realm: {len(kc_users)}")
     return [dict(user, id=None) for user in kc_users]
 
 
@@ -255,11 +275,7 @@ def create_keycloak_user(email, first_name, last_name):
     """Create a Keycloak user."""
     realm = os.environ.get("keycloak_realm", None)
     keycloak_url = os.environ.get("keycloak_url")
-    keycloak_admin_user = os.environ.get("keycloak_admin_user")
-    keycloak_admin_password = os.environ.get("keycloak_admin_password")
-    access_token = get_admin_access_token(
-        keycloak_url, keycloak_admin_user, keycloak_admin_password
-    )
+    access_token = _get_keycloak_admin_token()
     if not access_token:
         logger.error("Could not get access token from Keycloak")
         return None
@@ -417,6 +433,43 @@ def migrate_plone_user_id_to_keycloak_user_id(plone_users, keycloak_users):
         logger.error(f"Error migrating users: {e}")
     finally:
         enable_authentication_plugins()
+
+
+def run_user_migration(context):
+    """Migrate existing Plone users to Keycloak, app-agnostically.
+
+    Behaviour is driven by the `application_id` env var (see
+    APP_MIGRATION_CONFIG): which extra Keycloak realms to pull users from and
+    whether to clean up the legacy `authentic` plugin afterwards.
+    """
+    application_id = os.environ.get("application_id", "iA.Smartweb")
+    keycloak_realm = os.environ.get("keycloak_realm", "")
+    logger.info(
+        f"run_user_migration starting (application_id={application_id}, "
+        f"keycloak_realm={keycloak_realm!r})"
+    )
+    if not varenvs_exist():
+        logger.info("Required environment variables missing; aborting migration.")
+        return
+    if not realm_exists(keycloak_realm):
+        logger.error(f"Keycloak realm '{keycloak_realm}' does not exist.")
+        return
+    cfg = get_app_migration_config()
+    logger.info(f"Migration config: {cfg}")
+    kc_users = get_keycloak_users()
+    plone_users = api.user.get_users()
+    logger.info(
+        f"Migrating {len(plone_users)} Plone users against {len(kc_users)} "
+        f"Keycloak users."
+    )
+    migrate_plone_user_id_to_keycloak_user_id(plone_users, kc_users)
+    logger.info("migrate_plone_user_id_to_keycloak_user_id finished.")
+    if cfg["clean_authentic"]:
+        logger.info("Cleaning up legacy authentic users.")
+        clean_authentic_users()
+    else:
+        logger.info("Skipping authentic users cleanup (not enabled for this app).")
+    logger.info("run_user_migration finished.")
 
 
 def update_owner(plone_user_id, keycloak_user_id, list_local_roles):
@@ -583,11 +636,7 @@ def enable_authentication_plugins() -> None:
 def realm_exists(realm: str) -> bool:
     """Check if a Keycloak realm exists."""
     keycloak_url = os.environ.get("keycloak_url")
-    keycloak_admin_user = os.environ.get("keycloak_admin_user")
-    keycloak_admin_password = os.environ.get("keycloak_admin_password")
-    access_token = get_admin_access_token(
-        keycloak_url, keycloak_admin_user, keycloak_admin_password
-    )
+    access_token = _get_keycloak_admin_token()
     if not access_token:
         logger.error("Could not get access token from Keycloak")
         return False
@@ -672,6 +721,7 @@ def check_keycloak_settings(plugin="oidc") -> bool:
 def varenvs_exist() -> bool:
     """Check if all required environment variables are set."""
     required_vars = [
+        "application_id",
         "keycloak_admin_user",
         "keycloak_admin_password",
         "keycloak_url",
