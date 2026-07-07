@@ -209,7 +209,7 @@ def get_plugin(pluginid="oidc"):
 DEFAULT_APP_MIGRATION = {"extra_realms": [], "clean_authentic": False}
 
 APP_MIGRATION_CONFIG = {
-    "iA.Smartweb": {"extra_realms": [], "clean_authentic": True},
+    "iA.Smartweb": {"extra_realms": ["imio"], "clean_authentic": True},
     "iA.Bibliotheca": {"extra_realms": [], "clean_authentic": False},
 }
 
