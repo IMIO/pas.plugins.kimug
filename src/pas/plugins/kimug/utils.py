@@ -243,8 +243,8 @@ def _fetch_realm_users(realm, max_results=None, raise_on_error=False):
     if max_results is not None:
         url = f"{url}?max={max_results}"
     headers = {"Authorization": "Bearer " + access_token}
-    response = requests.get(url=url, headers=headers)
-    if response.status_code == 200 and response.json():
+    response = requests.get(url=url, headers=headers, timeout=30)
+    if response.status_code == 200:
         return response.json()
     if raise_on_error:
         logger.error(
