@@ -134,12 +134,12 @@ classDiagram
 | Path (under `src/pas/plugins/kimug/`) | Purpose |
 |---|---|
 | `plugin/__init__.py` | `KimugPlugin` class: token extraction, JWT verification, JWKS caching, role assignment, user auto-creation |
-| `utils.py` | Keycloak admin REST API integration, user sync/migration, `set_sso_apps_local_roles` (municipality local-role assignment), `set_oidc_settings` startup configuration, settings validation, legacy `authentic`/`pas.plugins.imio` cleanup |
+| `utils.py` | Keycloak admin REST API integration, user sync/migration (`run_user_migration`, per-app `APP_MIGRATION_CONFIG`), `set_sso_apps_local_roles` (municipality local-role assignment), `set_oidc_settings` startup configuration, settings validation, legacy `authentic`/`pas.plugins.imio` cleanup |
 | `browser/view.py` | Login/callback views and admin views (migration, user sync, SSO-apps local roles, debug toggle, Keycloak-hosted redirects) |
 | `scripts/set_sso_apps_permissions.py` | Standalone `bin/instance run` runscript wrapping `set_sso_apps_local_roles` (supports `--dry-run`) |
 | `controlpanel/classic.py` | Control panel adapter and forms for both plugin instances |
 | `interfaces.py` | `IBrowserLayer`, `IKimugPlugin`, `IKimugSettings`, `IKimugSSOAppsSettings` |
-| `setuphandlers/__init__.py` | `post_install` handler: creates both plugins, applies settings, runs migration, cleans up legacy `authentic` users |
+| `setuphandlers/__init__.py` | `post_install` handler: creates both plugins, applies settings, runs the app-agnostic user migration (`run_user_migration`) |
 | `subscribers/configure.zcml` | Registers `set_oidc_settings` on `IDatabaseOpenedWithRoot` (Zope startup) |
 | `upgrades/` | GenericSetup upgrade steps (profile versions 1000 → 1007) |
 | `profiles/default/` | GenericSetup profile (registry, control panel, browser layer, rolemap), version 1007 |
@@ -343,11 +343,21 @@ bin/instance -O Plone run scripts/set_sso_apps_permissions.py --dry-run
 
 ### User migration
 
-`migrate_plone_user_id_to_keycloak_user_id` (in `utils.py`, triggered by `@@keycloak_migration` or at install time) converts legacy Plone accounts so their user id becomes the Keycloak id. Users are matched **by email**; everything attached to the old account follows the new id:
+`run_user_migration` (in `utils.py`, called by `post_install`) migrates legacy Plone accounts so their user id becomes the Keycloak id. The migration is **app-agnostic**: the `application_id` environment variable selects a per-app profile in `APP_MIGRATION_CONFIG` that decides which extra Keycloak realms to fetch users from (besides the primary `keycloak_realm`) and whether to clean up the legacy `authentic` plugin afterwards:
+
+| `application_id` | Extra realms fetched | `authentic` cleanup |
+|---|---|---|
+| `iA.Smartweb` (default) | `imio` | yes |
+| `iA.Bibliotheca` | – | no |
+| any other value | – | no |
+
+`run_user_migration` aborts early when a required environment variable is missing (`varenvs_exist`, which includes `application_id`) or when the primary realm does not answer (`realm_exists`). The `@@keycloak_migration` view runs the same core migration (`get_keycloak_users` + `migrate_plone_user_id_to_keycloak_user_id`) without those guards and without the `authentic` cleanup — `get_keycloak_users` itself honours the app profile's extra realms in both paths.
+
+`migrate_plone_user_id_to_keycloak_user_id` matches users **by email**; everything attached to the old account follows the new id:
 
 ```mermaid
 flowchart TD
-    A["@@keycloak_migration"] --> B["fetch all Keycloak users<br/>(realm + imio realm, admin API)"]
+    A["run_user_migration (post_install)<br/>or @@keycloak_migration"] --> B["fetch all Keycloak users<br/>(keycloak_realm + extra realms<br/>from APP_MIGRATION_CONFIG)"]
     B --> C["disable all IAuthenticationPlugin plugins<br/>(ids saved in site annotations)"]
     C --> D["index Plone users by email"]
     D --> E{"for each Keycloak user<br/>with matching Plone email"}
@@ -362,9 +372,12 @@ flowchart TD
     L --> E
     E -- done --> M["delete old users<br/>(portal_membership.deleteMembers)"]
     M --> N["re-enable authentication plugins"]
+    N --> O{"clean_authentic<br/>in app profile?"}
+    O -- yes --> P["clean_authentic_users()"]
+    O -- no --> Q["done"]
 ```
 
-Authentication plugins are disabled during the migration to prevent conflicts, and re-enabled in a `finally` block even if the migration fails.
+Authentication plugins are disabled during the migration to prevent conflicts, and re-enabled in a `finally` block even if the migration fails. The final `authentic` cleanup only runs through `run_user_migration`, and only for apps whose profile enables it.
 
 ## Configuration
 
@@ -388,7 +401,7 @@ All configuration is environment-driven (set by puppet in production) and applie
 | `keycloak_change_password_url` | `http://localhost/wca/change_password/` | Redirect target of `@@change-password` |
 | `keycloak_admin_user` / `keycloak_admin_password` | – | Master-realm admin credentials (migration, full user fetch) |
 | `WEBSITE_HOSTNAME` | – | Builds the redirect URI: `https://{hostname}/acl_users/oidc/callback` (fallback `http://localhost:8080/Plone/...`) |
-| `application_id` | `iA.Smartweb` | Admin group prefix for the `Manager` role (`{application_id}-admin`) |
+| `application_id` | `iA.Smartweb` | Admin group prefix for the `Manager` role (`{application_id}-admin`); also selects the per-app migration profile (`APP_MIGRATION_CONFIG`) and is required (`varenvs_exist`) for the install-time migration to run |
 | `KIMUG_LOG` | `false` | When not `true`, debug logging registry record is forced off at startup |
 
 **`oidc_sso_apps` plugin (Bearer tokens from other iMio apps):**
@@ -459,7 +472,7 @@ The package is auto-discovered by Plone via `z3c.autoinclude`. Installing the `p
 1. creates the `oidc` plugin (all PAS interfaces activated, moved to the end of each interface list);
 2. creates the `oidc_sso_apps` plugin with `challenge=False` (its `IChallengePlugin` activation is removed so interactive logins stay on `oidc`);
 3. runs `set_oidc_settings`;
-4. if all required environment variables are present (`varenvs_exist`) and the realm answers (`realm_exists`): fetches Keycloak users, runs the user-id migration and cleans up legacy `authentic` users (`clean_authentic_users`).
+4. runs the app-agnostic user migration (`run_user_migration`): if all required environment variables are present (`varenvs_exist`, including `application_id`) and the realm answers (`realm_exists`), fetches users from the primary realm plus the app profile's extra realms, runs the email-keyed user-id migration, and cleans up legacy `authentic` users (`clean_authentic_users`) only when the profile enables it (currently `iA.Smartweb`).
 
 Profile version is **1007**. Upgrade history:
 
@@ -475,7 +488,7 @@ Profile version is **1007**. Upgrade history:
 
 ## Testing
 
-Tests run against a real Keycloak started by **pytest-docker** from `tests/docker-compose.yml`: Keycloak + PostgreSQL behind a Traefik reverse proxy, reachable at `https://keycloak.127.0.0.1.nip.io/`. Three realms are imported at startup (`realm-plone.json`, `realm-imio.json`, `realm-sso-apps.json`).
+Tests run against a real Keycloak started by **pytest-docker** from `tests/docker-compose.yml`: Keycloak + PostgreSQL behind a Traefik reverse proxy, reachable at `https://keycloak.127.0.0.1.nip.io/`. Every realm file in `tests/keycloak/import/` is imported at startup (`--import-realm`): `plone`, `imio` and `sso-apps`, plus five dummy `municipality1`…`municipality5` realms (each with an `imio` identity provider and a handful of dummy users) for local multi-municipality testing. The identity-provider link alias is `imio`, matching the staging/production naming convention.
 
 ```bash
 .venv/bin/pytest tests -s              # run the test suite
