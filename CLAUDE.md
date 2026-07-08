@@ -13,7 +13,7 @@ make start          # Start Plone on localhost:8080
 
 ## Testing
 
-Tests require a Docker Keycloak instance (managed by pytest-docker via `tests/docker-compose.yml`): Keycloak + PostgreSQL behind Traefik at `https://keycloak.127.0.0.1.nip.io/`, with three realms imported (`plone`, `imio`, `sso-apps`).
+Tests require a Docker Keycloak instance (managed by pytest-docker via `tests/docker-compose.yml`): Keycloak + PostgreSQL behind Traefik at `https://keycloak.127.0.0.1.nip.io/`. All realm files in `tests/keycloak/import/` are imported: `plone`, `imio`, `sso-apps`, plus five dummy `municipality1`…`municipality5` realms (IdP link alias `imio`, as in staging/prod).
 
 ```bash
 .venv/bin/pytest tests -s          # Run the test suite (preferred)
@@ -64,12 +64,12 @@ JWKS caching (class-level on `KimugPlugin`): one `PyJWKClient` per plugin id, re
 | Path | Purpose |
 |------|---------|
 | `plugin/__init__.py` | `KimugPlugin` class: token extraction, JWT verification, JWKS caching, role assignment, user auto-creation |
-| `utils.py` | Keycloak admin REST API integration, user sync/migration, `set_sso_apps_local_roles` (municipality local-role assignment), `set_oidc_settings` startup configuration, settings validation, legacy `authentic`/`pas.plugins.imio` cleanup |
+| `utils.py` | Keycloak admin REST API integration, user sync/migration (`run_user_migration`, per-app `APP_MIGRATION_CONFIG`), `set_sso_apps_local_roles` (municipality local-role assignment), `set_oidc_settings` startup configuration, settings validation, legacy `authentic`/`pas.plugins.imio` cleanup |
 | `browser/view.py` | Login/callback views and admin views (migration, user sync, `@@set_sso_apps_permissions`, `@@set_oidc_settings`, debug toggle, Keycloak-hosted redirects for new-user/personal-information/change-password) |
 | `scripts/set_sso_apps_permissions.py` | Standalone `bin/instance run` runscript wrapping `set_sso_apps_local_roles` (supports `--dry-run`) |
 | `controlpanel/classic.py` | Control panel adapter and forms for both plugin instances (`@@kimug-controlpanel`) |
 | `interfaces.py` | `IBrowserLayer`, `IKimugPlugin`, `IKimugSettings`, `IKimugSSOAppsSettings` |
-| `setuphandlers/__init__.py` | `post_install` handler: creates both plugins, applies settings, runs migration |
+| `setuphandlers/__init__.py` | `post_install` handler: creates both plugins, applies settings, runs the app-agnostic user migration (`run_user_migration`) |
 | `subscribers/configure.zcml` | Registers `set_oidc_settings` on `IDatabaseOpenedWithRoot` (Zope startup) |
 | `upgrades/` | GenericSetup upgrade steps (profile versions 1000 → 1007) |
 | `testing.py` | INTEGRATION_TESTING, FUNCTIONAL_TESTING, ACCEPTANCE_TESTING layers |
@@ -87,7 +87,7 @@ All configuration is environment-driven (set by puppet in production) and applie
 - `keycloak_admin_user`, `keycloak_admin_password` — for Keycloak admin API (migration, full user fetch)
 - `keycloak_allowed_groups` — groups allowed to log in / be synced
 - `keycloak_add_user_url`, `keycloak_personal_information_url`, `keycloak_change_password_url` — Keycloak-hosted redirect targets
-- `application_id` (default: `iA.Smartweb`) — admin group prefix for the `Manager` role (`{application_id}-admin`)
+- `application_id` (default: `iA.Smartweb`) — admin group prefix for the `Manager` role (`{application_id}-admin`); also selects the per-app migration profile (`APP_MIGRATION_CONFIG`: extra realms to fetch + whether to clean up `authentic`) and is required for the install-time migration
 - `KIMUG_LOG` — when not `true`, the debug logging registry record is forced off at startup
 
 **`oidc_sso_apps` plugin (Bearer tokens from other iMio apps):**
@@ -104,7 +104,7 @@ All configuration is environment-driven (set by puppet in production) and applie
 - Default profile at `profiles/default/` (version **1007**)
 - Uninstall profile at `profiles/uninstall/`
 - Upgrade steps in `upgrades/` (1000 → 1007); step **1005 → 1006** removes `pas.plugins.imio` and the legacy `authentic` PAS plugin (`remove_pas_plugins_imio` → `remove_authentic_plugin`); step **1006 → 1007** registers the `Kimug Authenticated Users` role (rolemap) and grants it to existing plugin-created users — those with an `@kimug.be` email (`grant_kimug_authenticated_role`)
-- `post_install` creates both plugins (`oidc_sso_apps` without `IChallengePlugin`), runs `set_oidc_settings`, and if the required env vars are present runs the user-id migration and cleans up legacy `authentic` users (`clean_authentic_users`)
+- `post_install` creates both plugins (`oidc_sso_apps` without `IChallengePlugin`), runs `set_oidc_settings`, then `run_user_migration`: if the required env vars are present (including `application_id`), fetches users from the primary realm plus the app profile's extra realms, runs the email-keyed user-id migration, and cleans up legacy `authentic` users only when the profile enables it (currently `iA.Smartweb`)
 
 ## Key Patterns
 

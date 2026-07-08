@@ -168,6 +168,79 @@ class TestUtils:
 
         os.environ.pop("SSO_APPS_MUNICIPALITY_GROUPS", None)
 
+    def test_get_app_migration_config(self):
+        """The migration config is selected by the `application_id` env var."""
+        previous = os.environ.get("application_id")
+        try:
+            # 1. Default (env var unset) -> iA.Smartweb behaviour
+            os.environ.pop("application_id", None)
+            cfg = utils.get_app_migration_config()
+            assert cfg == {"extra_realms": ["imio"], "clean_authentic": True}
+
+            # 2. Explicit iA.Smartweb
+            os.environ["application_id"] = "iA.Smartweb"
+            cfg = utils.get_app_migration_config()
+            assert cfg == {"extra_realms": ["imio"], "clean_authentic": True}
+
+            # 3. iA.Bibliotheca: no extra realm, no authentic cleanup
+            os.environ["application_id"] = "iA.Bibliotheca"
+            cfg = utils.get_app_migration_config()
+            assert cfg == {"extra_realms": [], "clean_authentic": False}
+
+            # 4. Unknown app falls back to the safe default
+            os.environ["application_id"] = "some.other.app"
+            cfg = utils.get_app_migration_config()
+            assert cfg == utils.DEFAULT_APP_MIGRATION
+        finally:
+            if previous is None:
+                os.environ.pop("application_id", None)
+            else:
+                os.environ["application_id"] = previous
+
+    def test_get_keycloak_users_honours_extra_realms(self):
+        """get_keycloak_users only fetches extra realms listed for the app."""
+        previous = os.environ.get("application_id")
+        env = {
+            "keycloak_realm": "plone",
+            "keycloak_url": "https://kc.example/",
+            "keycloak_admin_user": "admin",
+            "keycloak_admin_password": "admin",
+        }
+        primary = self._mock_response([{"id": "1", "email": "a@b.c"}])
+        try:
+            os.environ.update(env)
+            with patch.object(
+                utils, "get_admin_access_token", return_value="tok"
+            ), patch(
+                "pas.plugins.kimug.utils.requests.get", return_value=primary
+            ), patch.object(
+                utils, "get_realm_users", return_value=[{"id": None, "email": "x@y.z"}]
+            ) as mocked_realm:
+                # iA.Bibliotheca: no extra realm fetched
+                os.environ["application_id"] = "iA.Bibliotheca"
+                users = utils.get_keycloak_users()
+                assert mocked_realm.call_count == 0
+                assert users == [{"id": "1", "email": "a@b.c"}]
+
+                # iA.Smartweb: the "imio" realm is fetched and appended
+                os.environ["application_id"] = "iA.Smartweb"
+                users = utils.get_keycloak_users()
+                mocked_realm.assert_called_once_with("imio")
+                assert {"id": None, "email": "x@y.z"} in users
+        finally:
+            for key in env:
+                os.environ.pop(key, None)
+            if previous is None:
+                os.environ.pop("application_id", None)
+            else:
+                os.environ["application_id"] = previous
+
+    def _mock_response(self, data):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = data
+        return resp
+
 
 class TestGetKeycloakUsersFromOidcSsoApps:
     def _configure_plugin(self):
