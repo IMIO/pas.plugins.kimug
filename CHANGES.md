@@ -1,4 +1,4 @@
-## 1.9.0 (unreleased)
+## 1.9.0 (2026-07-08)
 
 
 ### New features:
