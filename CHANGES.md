@@ -1,7 +1,9 @@
-## 1.8.1 (unreleased)
+## 1.9.0 (unreleased)
 
 
-- Nothing changed yet.
+### New features:
+
+- Make the install-time user migration app-agnostic, driven by the `application_id` environment variable. A new `run_user_migration` helper selects which extra Keycloak realms to fetch and whether to clean up the legacy `authentic` plugin (via `APP_MIGRATION_CONFIG`), so apps with plain Plone users (e.g. `iA.Bibliotheca`) are migrated by email without the `iA.Smartweb`-specific `imio` realm fetch or `authentic` cleanup. [remdub] app-agnostic-migration
 
 
 ## 1.8.0 (2026-06-23)
