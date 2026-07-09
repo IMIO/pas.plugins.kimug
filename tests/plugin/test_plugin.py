@@ -80,6 +80,38 @@ class TestPlugin:
         assert pas.getUserById("kimug") is not None
         assert api.user.get_users()[0].getUserId() == "kimug"
 
+    def test_create_update_groups_skips_user_id_collision(self, portal):
+        """A token group whose id collides with an existing Plone *user* id must
+        be skipped, not crash the login.
+
+        Regression: the ``imio`` IdP-link group name shipped in the token matched
+        an existing ``imio`` Plone user, so ``api.group.create`` returned ``None``
+        (PlonePAS refuses a group whose id is already a principal) and the
+        upstream ``_create_update_groups`` raised
+        ``AttributeError: 'NoneType' object has no attribute 'getTool'``.
+        """
+        plugin = portal.acl_users.oidc
+        pas = portal.acl_users
+        with api.env.adopt_roles(["Manager"]):
+            # Existing user whose id equals a group name carried by the token.
+            api.user.create(username="imio", email="imio@example.com")
+            # The user that is logging in.
+            api.user.create(username="login-uid", email="login@example.com")
+            user = pas.getUserById("login-uid")
+
+            # Must not raise despite the "imio" user/group collision.
+            plugin._create_update_groups(
+                user, "login-uid", {"groups": ["imio", "real-group"]}
+            )
+
+            user = pas.getUserById("login-uid")
+            # The colliding id is skipped: no group created, user not joined.
+            assert api.group.get("imio") is None
+            assert "imio" not in user.getGroups()
+            # A normal group is still created and assigned.
+            assert api.group.get("real-group") is not None
+            assert "real-group" in user.getGroups()
+
     def test_ensure_user_exists_creates_user(self, portal):
         """_ensure_user_exists should create a Plone user with email from payload."""
         plugin = portal.acl_users.oidc

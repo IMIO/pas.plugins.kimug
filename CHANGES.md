@@ -1,7 +1,9 @@
 ## 1.9.3 (unreleased)
 
 
-- Nothing changed yet.
+- Fix OIDC login crash when a Keycloak group name collides with an
+  existing Plone user id (e.g. the `imio` IdP-link alias): skip the unmappable
+  group instead of dereferencing `None` in `_create_update_groups`. [remdub]
 
 
 ## 1.9.2 (2026-07-09)

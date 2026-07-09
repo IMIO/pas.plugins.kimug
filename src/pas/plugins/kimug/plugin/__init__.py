@@ -6,6 +6,7 @@ from jwt.exceptions import PyJWKClientError
 from pas.plugins.kimug.interfaces import IKimugPlugin
 from pas.plugins.kimug.utils import is_log_active
 from pas.plugins.oidc.plugins import OIDCPlugin
+from pas.plugins.oidc.plugins import safe_write
 from plone import api
 from Products.PageTemplates.PageTemplateFile import PageTemplateFile
 from Products.PluggableAuthService.interfaces import plugins as pas_interfaces
@@ -138,6 +139,57 @@ class KimugPlugin(OIDCPlugin):
         if is_log_active():
             logger.info(f"getRolesForPrincipal: assigned roles={tuple(roles)}")
         return tuple(roles)
+
+    @security.private
+    def _create_update_groups(self, user, user_id, userinfo):
+        """Sync the token's group claim into Plone groups.
+
+        Overrides ``OIDCPlugin._create_update_groups`` to guard against a group
+        id that cannot be created as a Plone group. ``api.group.create`` returns
+        ``None`` when the id collides with an existing principal: Keycloak group
+        names (e.g. the ``imio`` IdP link alias) can match an existing Plone
+        *user* id, in which case ``Products.PlonePAS`` refuses the group
+        (``searchPrincipals`` finds the user) and ``getGroupById`` returns
+        ``None``. The upstream method then dereferences ``None`` and raises
+        ``AttributeError: 'NoneType' object has no attribute 'getTool'``, turning
+        an interactive login into an HTTP 500. Here we skip the unmappable id
+        (logging a warning) instead of crashing.
+        """
+        groupid_property = self.getProperty("user_property_as_groupid")
+        group_ids = userinfo.get(groupid_property)
+        if isinstance(group_ids, str):
+            group_ids = [group_ids]
+
+        if isinstance(group_ids, list):
+            with safe_write(self.REQUEST):
+                oidc = self.getId()
+                groups = user.getGroups()
+                # Remove group memberships
+                for gid in groups:
+                    group = api.group.get(gid)
+                    if group is None:
+                        continue
+                    is_managed = group.getProperty("type") == oidc.upper()
+                    if is_managed and gid not in group_ids:
+                        api.group.remove_user(group=group, username=user_id)
+                # Add group memberships
+                for gid in group_ids:
+                    if gid not in groups:
+                        group = api.group.get(gid) or api.group.create(gid, title=gid)
+                        if group is None:
+                            logger.warning(
+                                "Skipping group '%s' from token: it collides "
+                                "with an existing principal id and cannot be "
+                                "created as a Plone group.",
+                                gid,
+                            )
+                            continue
+                        # Tag managed groups with "type" of plugin id
+                        if not group.getTool().hasProperty("type"):
+                            group.getTool()._setProperty("type", "", "string")
+                        group.setGroupProperties({"type": oidc.upper()})
+                        api.group.add_user(group=group, username=user_id)
+        return user.getGroups()
 
     @security.private
     def extractCredentials(self, request):
