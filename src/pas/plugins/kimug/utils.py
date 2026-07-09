@@ -1246,39 +1246,44 @@ def remove_authentic_users(context=None) -> None:
 def _parse_bracketed_env_list(value: str) -> list[str]:
     """Parse a puppet-rendered list env var like '[a, b]' into a list of names.
 
-    Handles the bracketed comma-space form '[a, b]' and a single bare value 'a'.
+    Handles the bracketed comma-space form '[a, b]', quoted elements
+    '["a", "b"]', and a single bare value 'a'.
     """
     value = value.strip()
     if value.startswith("[") and value.endswith("]"):
         value = value[1:-1]
-    return [v for v in value.split(", ") if v]
+    return [
+        cleaned
+        for v in value.split(", ")
+        if (cleaned := v.strip().strip('"').strip("'"))
+    ]
 
 
 def _set_allowed_groups(oidc) -> None:
     """Set allowed groups from environment variable."""
     varenv_allowed_groups = os.environ.get("keycloak_allowed_groups", None)
 
-    # varenv set by puppet is an unquoted string representation of a list, e.g. "[group1, group2]"
-    # we can also have a single group without brackets, e.g. "group 1"
-    # we need to convert it to a tuple
-
-    if varenv_allowed_groups is not None:
-        # strip brackets if present
-        if varenv_allowed_groups.startswith("[") and varenv_allowed_groups.endswith(
-            "]"
-        ):
-            varenv_allowed_groups = varenv_allowed_groups[1:-1]
-        # split by comma and strip spaces
-        varenv_allowed_groups = varenv_allowed_groups.split(", ")
-
-        # convert to tuple
-        if isinstance(varenv_allowed_groups, str):
-            oidc.allowed_groups = (varenv_allowed_groups,)
-        else:
-            oidc.allowed_groups = tuple(varenv_allowed_groups)
-        logger.info(f"Set allowed groups to: {varenv_allowed_groups}")
-    else:
+    # epp templates :
+    # varenv set by puppet is an unquoted string representation of a list, e.g.
+    # "[group1, group2]".
+    # erc templates :
+    # Puppet may also quote each element, e.g.
+    # '["iA.Bibliotheca", "iA.test"]'. A single group without brackets is also
+    # accepted, e.g. "group 1". Convert it to a tuple.
+    if varenv_allowed_groups is None:
         logger.info("No environment variable for allowed groups set. Not changing.")
+        return
+
+    # strip brackets if present
+    if varenv_allowed_groups.startswith("[") and varenv_allowed_groups.endswith("]"):
+        varenv_allowed_groups = varenv_allowed_groups[1:-1]
+    # split by comma-space and strip surrounding quotes/spaces from each element
+    groups = tuple(
+        group.strip().strip('"').strip("'")
+        for group in varenv_allowed_groups.split(", ")
+    )
+    oidc.allowed_groups = groups
+    logger.info(f"Set allowed groups to: {list(groups)}")
 
 
 def _set_municipality_groups(oidc_sso_apps) -> None:

@@ -137,6 +137,24 @@ class TestUtils:
 
         assert oidc.allowed_groups == ("group.1 is - the first!",)
 
+        # 6. Puppet may quote each element: single quoted group
+
+        os.environ["keycloak_allowed_groups"] = '["iA.Bibliotheca"]'
+
+        utils._set_allowed_groups(oidc)
+
+        assert oidc.allowed_groups == ("iA.Bibliotheca",)
+
+        # 7. Puppet may quote each element: multiple quoted groups
+
+        os.environ["keycloak_allowed_groups"] = '["iA.Bibliotheca", "iA.test"]'
+
+        utils._set_allowed_groups(oidc)
+
+        assert oidc.allowed_groups == ("iA.Bibliotheca", "iA.test")
+
+        os.environ.pop("keycloak_allowed_groups", None)
+
     def test_set_municipality_groups(self, portal):
         """Test _set_municipality_groups: env var -> oidc_sso_apps property."""
 
@@ -165,6 +183,16 @@ class TestUtils:
         os.environ["SSO_APPS_MUNICIPALITY_GROUPS"] = "pl_belleville_ac"
         utils._set_municipality_groups(oidc_sso_apps)
         assert oidc_sso_apps.municipality_groups == ("pl_belleville_ac",)
+
+        # 5. Puppet may quote each element
+        os.environ[
+            "SSO_APPS_MUNICIPALITY_GROUPS"
+        ] = '["pl_belleville_ac", "pl_another_ic"]'
+        utils._set_municipality_groups(oidc_sso_apps)
+        assert oidc_sso_apps.municipality_groups == (
+            "pl_belleville_ac",
+            "pl_another_ic",
+        )
 
         os.environ.pop("SSO_APPS_MUNICIPALITY_GROUPS", None)
 

@@ -1,7 +1,9 @@
 ## 1.9.2 (unreleased)
 
 
-- Nothing changed yet.
+- Handle quoted list elements in puppet-rendered group env vars.
+  (erb templates returns us quoted list elements)
+  [remdub]
 
 
 ## 1.9.1 (2026-07-09)
