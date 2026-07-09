@@ -1,4 +1,4 @@
-## 1.9.3 (unreleased)
+## 1.9.3 (2026-07-09)
 
 
 - Fix OIDC login crash when a Keycloak group name collides with an
