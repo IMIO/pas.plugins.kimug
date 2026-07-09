@@ -1,7 +1,8 @@
 ## 1.9.1 (unreleased)
 
 
-- Nothing changed yet.
+- Remove deprecated `keycloak_redirect_uris` from the required env vars checked
+  by `varenvs_exist` (dead since 1.3.0, code purged in 1.4.0). [remdub]
 
 
 ## 1.9.0 (2026-07-08)

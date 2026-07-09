@@ -728,7 +728,6 @@ def varenvs_exist() -> bool:
         "keycloak_client_id",
         "keycloak_client_secret",
         "keycloak_issuer",
-        "keycloak_redirect_uris",
         "keycloak_realm",
     ]
     missing_vars = [var for var in required_vars if not os.environ.get(var)]
