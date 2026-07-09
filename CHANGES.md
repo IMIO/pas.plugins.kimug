@@ -1,4 +1,4 @@
-## 1.9.2 (unreleased)
+## 1.9.2 (2026-07-09)
 
 
 - Handle quoted list elements in puppet-rendered group env vars.
