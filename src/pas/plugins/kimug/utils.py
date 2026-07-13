@@ -634,17 +634,43 @@ def enable_authentication_plugins() -> None:
 
 
 def realm_exists(realm: str) -> bool:
-    """Check if a Keycloak realm exists."""
+    """Check that a Keycloak realm exists and the admin token can manage it.
+
+    Uses the public, unauthenticated HEAD on /realms/{realm} for existence
+    (tiny cached endpoint, no RealmRepresentation rebuild) followed by a GET on
+    /admin/realms/{realm}/users/count to confirm effective admin access with a
+    minimal integer payload.
+    """
     keycloak_url = os.environ.get("keycloak_url")
+
+    # HEAD on the public realm endpoint: existence check, no auth, cached,
+    # minimal payload (no admin RealmRepresentation involved).
+    realm_url = f"{keycloak_url}realms/{realm}"
+    head_response = requests.head(url=realm_url, timeout=10, allow_redirects=True)
+    if head_response.status_code != 200:
+        logger.error(
+            f"Realm '{realm}' does not exist: HEAD {realm_url} returned "
+            f"HTTP {head_response.status_code}"
+        )
+        return False
+
     access_token = _get_keycloak_admin_token()
     if not access_token:
         logger.error("Could not get access token from Keycloak")
         return False
 
-    url = f"{keycloak_url}admin/realms/{realm}"
+    # users/count: confirm effective admin access with a minimal payload.
     headers = {"Authorization": "Bearer " + access_token}
-    response = requests.get(url=url, headers=headers, timeout=10)
-    return response.status_code == 200
+    count_url = f"{keycloak_url}admin/realms/{realm}/users/count"
+    count_response = requests.get(url=count_url, headers=headers, timeout=10)
+    if count_response.status_code != 200:
+        logger.error(
+            f"No admin access to realm '{realm}': GET {count_url} returned "
+            f"HTTP {count_response.status_code}"
+        )
+        return False
+
+    return True
 
 
 def _check_redirect_uris(client_id: str, access_token: str) -> bool:
