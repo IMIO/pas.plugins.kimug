@@ -1,7 +1,8 @@
 ## 1.9.4 (unreleased)
 
 
-- Nothing changed yet.
+- Use a lightweight endpoint for realm_exists method
+  [remdub]
 
 
 ## 1.9.3 (2026-07-09)
