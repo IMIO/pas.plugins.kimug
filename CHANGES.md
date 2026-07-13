@@ -1,4 +1,4 @@
-## 1.9.4 (unreleased)
+## 1.9.4 (2026-07-13)
 
 
 - Use a lightweight endpoint for realm_exists method
