@@ -646,7 +646,7 @@ def realm_exists(realm: str) -> bool:
     # HEAD on the public realm endpoint: existence check, no auth, cached,
     # minimal payload (no admin RealmRepresentation involved).
     realm_url = f"{keycloak_url}realms/{realm}"
-    head_response = requests.head(url=realm_url, timeout=10)
+    head_response = requests.head(url=realm_url, timeout=10, allow_redirects=True)
     if head_response.status_code != 200:
         logger.error(
             f"Realm '{realm}' does not exist: HEAD {realm_url} returned "
