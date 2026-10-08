@@ -36,17 +36,32 @@ def get_redirect_uri() -> tuple[str, ...]:
 
 def set_oidc_settings(context):
     """Set the needed OIDC settings so that Keycloak and Keycloak-apps can be used as authentication source."""
+    conn = None
     try:
         api.portal.get()
         logger.info("Site found with api.portal.get()")
     except api.exc.CannotGetPortalError:
         logger.info("Site not found with api.portal.get(), setting it with setSite()")
+        # Startup subscriber: the connection must be closed, a leaked one keeps
+        # its storage read snapshot open (and its table locks with it).
+        conn = context.database.open()
         try:
-            site = context.database.open().root()["Application"]["Plone"]
+            site = conn.root()["Application"]["Plone"]
         except KeyError:
             logger.warning("Could not find Plone site, not setting OIDC settings")
+            conn.close()
             return
         setSite(site)
+    try:
+        _set_oidc_settings()
+    finally:
+        if conn is not None:
+            transaction.abort()
+            setSite(None)
+            conn.close()
+
+
+def _set_oidc_settings():
     if oidc := get_plugin("oidc"):
         realm = os.environ.get("keycloak_realm", "plone")
         client_id = os.environ.get("keycloak_client_id", "plone")

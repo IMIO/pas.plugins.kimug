@@ -923,6 +923,39 @@ class TestSetOidcSettings:
         assert is_log_active() is True
         api.portal.set_registry_record("pas.plugins.kimug.log", False)
 
+    def test_startup_connection_closed_when_site_missing(self):
+        """At startup without a Plone site, the connection opened to look for it
+        must be closed: a leaked one keeps its storage read snapshot open."""
+        conn = MagicMock()
+        conn.root.return_value = {"Application": {}}
+        context = MagicMock()
+        context.database.open.return_value = conn
+        with patch.object(
+            utils.api.portal, "get", side_effect=api.exc.CannotGetPortalError
+        ):
+            utils.set_oidc_settings(context)
+        conn.close.assert_called_once()
+
+    def test_startup_connection_closed_after_settings(self):
+        """At startup with a Plone site, the settings are applied, then the site
+        is unset and the connection closed."""
+        site = object()
+        conn = MagicMock()
+        conn.root.return_value = {"Application": {"Plone": site}}
+        context = MagicMock()
+        context.database.open.return_value = conn
+        with patch.object(
+            utils.api.portal, "get", side_effect=api.exc.CannotGetPortalError
+        ), patch("pas.plugins.kimug.utils.setSite") as mock_set_site, patch(
+            "pas.plugins.kimug.utils._set_oidc_settings"
+        ) as mock_settings, patch(
+            "pas.plugins.kimug.utils.transaction"
+        ):
+            utils.set_oidc_settings(context)
+        mock_settings.assert_called_once()
+        assert [c.args for c in mock_set_site.call_args_list] == [(site,), (None,)]
+        conn.close.assert_called_once()
+
 
 class TestIsLogActive:
     def test_is_log_active_default_false(self, portal):

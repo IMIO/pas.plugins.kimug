@@ -1,7 +1,12 @@
 ## 1.9.5 (unreleased)
 
 
-- Nothing changed yet.
+- Close the ZODB connection opened by the `set_oidc_settings` startup
+  subscriber. The leaked connection kept its storage read snapshot open, which
+  blocked the `ALTER TABLE object_state` of plone.pgcatalog on zodb-pgjsonb
+  (lock timeout), so the first commit failed with
+  `column "path" of relation "object_state" does not exist`.
+  [remdub]
 
 
 ## 1.9.4 (2026-07-13)
