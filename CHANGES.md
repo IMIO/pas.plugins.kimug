@@ -1,4 +1,4 @@
-## 1.9.5 (unreleased)
+## 1.9.5 (2026-10-09)
 
 
 - Close the ZODB connection opened by the `set_oidc_settings` startup
