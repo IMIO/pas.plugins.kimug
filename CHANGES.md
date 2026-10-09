@@ -1,3 +1,9 @@
+## 1.9.6 (unreleased)
+
+
+- Nothing changed yet.
+
+
 ## 1.9.5 (2026-10-09)
 
 
