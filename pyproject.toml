@@ -36,6 +36,7 @@ dependencies = [
     "PyJWT[crypto]>=2.6",
     "pas.plugins.oidc>=2.1.0",
     "plone.api",
+    "plone.base",
     "python-keycloak",
 ]
 keywords = ["Python", "Plone", "CMS"]

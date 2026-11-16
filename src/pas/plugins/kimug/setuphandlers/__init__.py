@@ -2,7 +2,7 @@ from pas.plugins.kimug.plugin import KimugPlugin
 from pas.plugins.kimug.utils import run_user_migration
 from pas.plugins.kimug.utils import set_oidc_settings
 from plone import api
-from Products.CMFPlone.interfaces import INonInstallable
+from plone.base.interfaces import INonInstallable
 from Products.PluggableAuthService.interfaces.plugins import IChallengePlugin
 from zope.interface import implementer
 
