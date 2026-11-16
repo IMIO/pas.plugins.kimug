@@ -1,7 +1,19 @@
 ## 2.0.0 (unreleased)
 
 
-- Nothing changed yet.
+- Breaking: replace the `pkg_resources` namespace of `pas` and `pas.plugins`
+  with a PEP 420 native namespace. Support Plone 6.1 and 6.2 only, on
+  Python 3.10 to 3.13, and require `pas.plugins.oidc>=2.1.0`.
+  [remdub]
+
+- Import `IPloneSiteRoot` and `INonInstallable` from `plone.base` instead of
+  the aliases Plone 6.2 deprecates.
+  [remdub]
+
+- Configure the package with plone.meta 2.12.0 (test matrix on Plone 6.2.3
+  and 6.1), move its metadata to `pyproject.toml` and run the development
+  environment on Plone 6.2.3 with uv. `pas.plugins.oidc` now comes from PyPI.
+  [remdub]
 
 
 ## 1.9.5 (2026-10-09)
