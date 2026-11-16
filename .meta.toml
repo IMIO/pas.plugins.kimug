@@ -38,9 +38,10 @@ passenv =
 """
 
 [github]
+# No "circular": pytest-plone requires Products.CMFPlone[test], whose test extra
+# (plone.app.testing, plone.app.robotframework...) depends back on CMFPlone.
 jobs = [
     "qa",
     "coverage",
     "release_ready",
-    "circular",
     ]
