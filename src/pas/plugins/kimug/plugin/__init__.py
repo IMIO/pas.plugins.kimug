@@ -18,7 +18,6 @@ import logging
 import os
 import time
 
-
 logger = logging.getLogger("pas.plugins.kimug")
 logger.setLevel(logging.INFO)
 

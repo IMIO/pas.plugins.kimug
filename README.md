@@ -12,8 +12,11 @@ Full documentation, with architecture and authentication-flow diagrams, is in [d
 
 ### Install pas.plugins.kimug:
 
+Requires [uv](https://docs.astral.sh/uv/). This installs Plone 6.2.3 in `.venv`
+(use `PLONE_VERSION=6.1.6 make install` for another version):
+
 ```shell
-make build
+make install
 ```
 
 ### Create the Plone site:
@@ -58,14 +61,29 @@ docker compose exec keycloak /opt/keycloak/bin/kc.sh export --file /opt/keycloak
 
 ### Run test
 
+Tests start Keycloak themselves through Docker (pytest-docker).
+
 ```shell
-.venv/bin/tox -e test -s
+.venv/bin/pytest tests -s
 ```
 
 or only one class
 
 ```shell
 .venv/bin/pytest tests -s -k TestMigration
+```
+
+Through tox, as the CI does (`make test-all` runs every Plone / Python combination):
+
+```shell
+make test
+uvx --with tox-uv tox -e py312-plone61
+```
+
+### Lint
+
+```shell
+make check
 ```
 
 ## Contribute

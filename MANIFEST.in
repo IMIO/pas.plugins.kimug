@@ -7,12 +7,10 @@ include *.acceptance
 include .coveragerc
 include .dockerignore
 include .editorconfig
-include *.txt
 include *.yml
 include *.md
 exclude .mrbob.ini
 exclude bobtemplate.cfg
-exclude *-mxdev.txt
 exclude Dockerfile
 exclude mx.ini
 exclude Makefile

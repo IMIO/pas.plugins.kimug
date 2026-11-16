@@ -15,7 +15,7 @@
       />
   <browser:page
       name="kimug-controlpanel"
-      for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+      for="plone.base.interfaces.IPloneSiteRoot"
       class=".classic.KimugSettingsControlPanel"
       permission="cmf.ManagePortal"
       layer="pas.plugins.kimug.interfaces.IDefaultBrowserLayer"

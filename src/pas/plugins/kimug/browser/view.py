@@ -19,7 +19,6 @@ from zExceptions import Unauthorized
 
 import logging
 
-
 logger = logging.getLogger("pas.plugins.kimug.view")
 
 

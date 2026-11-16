@@ -13,7 +13,6 @@ import requests
 import time
 import transaction
 
-
 logger = logging.getLogger("pas.plugins.kimug.utils")
 
 
@@ -1193,7 +1192,7 @@ def get_portal_from_zope_app(zope_app, user_id="admin"):
     runscript-only machinery is not pulled into normal request handling.
     """
     from AccessControl.SecurityManagement import newSecurityManager
-    from Products.CMFPlone.interfaces.siteroot import IPloneSiteRoot
+    from plone.base.interfaces import IPloneSiteRoot
     from Testing import makerequest
     from zope.globalrequest import setRequest
 

@@ -1,11 +1,77 @@
 # Generated from:
-# https://github.com/plone/meta/tree/main/config/default
+# https://github.com/plone/meta/tree/2.x/src/plone/meta/default
 # See the inline comments on how to expand/tweak this configuration file
 [build-system]
-requires = ["setuptools>=68.2"]
+requires = ["setuptools>=68.2,<83", "wheel"]
+
+# START-MARKER-MANUAL-CONFIG
+# Anything from here until END-MARKER-MANUAL-CONFIG
+# will be kept by plone.meta
+[project]
+name = "pas.plugins.kimug"
+version = "2.0.0.dev0"
+description = "A PAS plugin to set roles to imio keycloak users"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Plone",
+    "Framework :: Plone :: 6.1",
+    "Framework :: Plone :: 6.2",
+    "Framework :: Plone :: Addon",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+license = "GPL-2.0-only"
+dynamic = ["readme"]
+requires-python = ">=3.10"
+authors = [
+    {name = "iMio", email = "devops@imio.be"},
+]
+dependencies = [
+    "Products.CMFPlone",
+    "PyJWT[crypto]>=2.6",
+    "pas.plugins.oidc>=2.1.0",
+    "plone.api",
+    "plone.base",
+    "python-keycloak",
+]
+keywords = ["Python", "Plone", "CMS"]
+
+[project.scripts]
+update_locale = "pas.plugins.kimug.locales.update:update_locale"
+
+[project.entry-points."plone.autoinclude.plugin"]
+target = "plone"
+
+[project.optional-dependencies]
+test = [
+    "ipdb",
+    "plone.app.testing",
+    "plone.classicui",
+    "plone.restapi[test]",
+    "pytest",
+    "pytest-cov",
+    "pytest-docker",
+    "pytest-plone>=0.5.0",
+    "zest.releaser[recommended]",
+    "zestreleaser.towncrier",
+]
+
+[project.urls]
+PyPI = "https://pypi.org/project/pas.plugins.kimug"
+Source = "https://github.com/imio/pas.plugins.kimug"
+Issues = "https://github.com/imio/pas.plugins.kimug/issues"
+Changelog = "https://github.com/imio/pas.plugins.kimug/blob/main/CHANGES.md"
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.md", "CONTRIBUTORS.md", "CHANGES.md"], content-type = "text/markdown"}
+# END-MARKER-MANUAL-CONFIG
 
 [tool.towncrier]
-package = "pas.plugins.kimug"
 directory = "news/"
 filename = "CHANGES.md"
 start_string = "<!-- towncrier release notes start -->\n"
@@ -15,27 +81,27 @@ underlines = ["", "", ""]
 
 [[tool.towncrier.type]]
 directory = "breaking"
-name = "Breaking changes:"
+name = "Breaking changes"
 showcontent = true
 
 [[tool.towncrier.type]]
 directory = "feature"
-name = "New features:"
+name = "New features"
 showcontent = true
 
 [[tool.towncrier.type]]
 directory = "bugfix"
-name = "Bug fixes:"
+name = "Bug fixes"
 showcontent = true
 
 [[tool.towncrier.type]]
 directory = "internal"
-name = "Internal:"
+name = "Internal"
 showcontent = true
 
 [[tool.towncrier.type]]
 directory = "documentation"
-name = "Documentation:"
+name = "Documentation"
 showcontent = true
 
 [[tool.towncrier.type]]
@@ -63,7 +129,7 @@ profile = "plone"
 ##
 
 [tool.black]
-target-version = ["py38"]
+target-version = ["py310"]
 
 ##
 # Add extra configuration options in .meta.toml:
@@ -74,7 +140,7 @@ target-version = ["py38"]
 ##
 
 [tool.codespell]
-ignore-words-list = "discreet,vew"
+ignore-words-list = "discreet,assertin,thet,vew"
 skip = "*.po,*.min.js"
 ##
 # Add extra configuration options in .meta.toml:
@@ -122,7 +188,7 @@ Zope = [
   'Products.CMFCore', 'Products.CMFDynamicViewFTI',
 ]
 python-dateutil = ['dateutil']
-pytest-plone = ['pytest', 'plone.testing', 'plone.app.testing']
+pytest-plone = ['pytest', 'zope.pytestlayer', 'plone.testing', 'plone.app.testing']
 ignore-packages = ['plone.app.iterate', 'plone.app.upgrade', 'plone.volto', 'zestreleaser.towncrier', 'zest.releaser', 'pytest-cov']
 
 ##
@@ -133,6 +199,11 @@ ignore-packages = ['plone.app.iterate', 'plone.app.upgrade', 'plone.volto', 'zes
 #    "gitpython = ['git']",
 #    "pygithub = ['github']",
 #  ]
+#
+# The Zope and Plone mappings above are included by default. For a package
+# used outside the Zope world they are noise, and can be turned off with:
+#  [pyproject]
+#  plone_mappings = false
 ##
 
 [tool.check-manifest]
@@ -148,6 +219,7 @@ ignore = [
     "tests/.claude/*",
     ".env",
     ".envrc",
+
 ]
 
 ##

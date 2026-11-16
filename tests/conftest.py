@@ -10,7 +10,6 @@ from zope.component.hooks import setSite
 import pytest
 import requests
 
-
 pytest_plugins = ["pytest_plone"]
 
 

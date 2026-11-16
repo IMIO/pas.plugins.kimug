@@ -405,9 +405,12 @@ class TestPlugin:
         plugin = portal.acl_users.oidc
         mock_key = MagicMock()
         mock_key.key = "key"
-        with patch.object(plugin, "_get_jwks_client") as mock_client, patch(
-            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
-        ) as mock_decode:
+        with (
+            patch.object(plugin, "_get_jwks_client") as mock_client,
+            patch(
+                "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+            ) as mock_decode,
+        ):
             mock_client.return_value.get_signing_key_from_jwt.return_value = mock_key
             plugin._decode_token("fake.token", plugin="oidc_sso_apps")
         assert mock_decode.call_args.kwargs["audience"] == "imio-apps-plone"
@@ -419,9 +422,12 @@ class TestPlugin:
         plugin = portal.acl_users.oidc
         mock_key = MagicMock()
         mock_key.key = "key"
-        with patch.object(plugin, "_get_jwks_client") as mock_client, patch(
-            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
-        ) as mock_decode:
+        with (
+            patch.object(plugin, "_get_jwks_client") as mock_client,
+            patch(
+                "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+            ) as mock_decode,
+        ):
             mock_client.return_value.get_signing_key_from_jwt.return_value = mock_key
             plugin._decode_token("fake.token", plugin="oidc_sso_apps")
         assert mock_decode.call_args.kwargs["audience"] == "my-client"
@@ -435,9 +441,12 @@ class TestPlugin:
         plugin = portal.acl_users.oidc
         mock_key = MagicMock()
         mock_key.key = "key"
-        with patch.object(plugin, "_get_jwks_client") as mock_client, patch(
-            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
-        ) as mock_decode:
+        with (
+            patch.object(plugin, "_get_jwks_client") as mock_client,
+            patch(
+                "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+            ) as mock_decode,
+        ):
             mock_client.return_value.get_signing_key_from_jwt.return_value = mock_key
             plugin._decode_token("fake.token", plugin="oidc_sso_apps")
         assert mock_decode.call_args.kwargs["audience"] == "explicit-audience"
@@ -528,8 +537,9 @@ class TestPlugin:
         mock_key.key = "key"
         mock_client = MagicMock()
         mock_client.get_signing_key_from_jwt.return_value = mock_key
-        with patch.object(plugin, "_get_jwks_client", return_value=mock_client), patch(
-            "pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}
+        with (
+            patch.object(plugin, "_get_jwks_client", return_value=mock_client),
+            patch("pas.plugins.kimug.plugin.jwt.decode", return_value={"sub": "x"}),
         ):
             plugin._decode_token("fake.token", plugin="oidc")
         assert "oidc" not in KimugPlugin._jwks_failed_at
