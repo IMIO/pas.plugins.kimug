@@ -14,11 +14,11 @@ re-run. A summary is logged listing granted folders, users with no ``pl_``
 group, municipality slugs with no matching root folder, and users missing from
 Plone.
 """
+
 from pas.plugins.kimug.utils import get_portal_from_zope_app
 from pas.plugins.kimug.utils import set_sso_apps_local_roles
 
 import argparse
-
 
 parser = argparse.ArgumentParser(description="Grant sso-apps users local roles")
 parser.add_argument("-c")  # swallowed by `bin/instance run`

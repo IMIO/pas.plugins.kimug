@@ -13,7 +13,6 @@ import requests
 import time
 import transaction
 
-
 logger = logging.getLogger("pas.plugins.kimug.utils")
 
 

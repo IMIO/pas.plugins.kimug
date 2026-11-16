@@ -7,7 +7,6 @@ from zope.i18nmessageid import MessageFactory
 import logging
 import os
 
-
 PACKAGE_NAME = "pas.plugins.kimug"
 PLUGIN_ID = "oidc"
 SSO_APPS_PLUGIN_ID = "oidc_sso_apps"

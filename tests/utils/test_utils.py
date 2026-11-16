@@ -123,9 +123,9 @@ class TestUtils:
 
         # 5. Another format of allowed groups from environment variable (special chars)
 
-        os.environ[
-            "keycloak_allowed_groups"
-        ] = "[group.1 is - the first!, group_2@second]"
+        os.environ["keycloak_allowed_groups"] = (
+            "[group.1 is - the first!, group_2@second]"
+        )
 
         utils._set_allowed_groups(oidc)
 
@@ -185,9 +185,9 @@ class TestUtils:
         assert oidc_sso_apps.municipality_groups == ("pl_belleville_ac",)
 
         # 5. Puppet may quote each element
-        os.environ[
-            "SSO_APPS_MUNICIPALITY_GROUPS"
-        ] = '["pl_belleville_ac", "pl_another_ic"]'
+        os.environ["SSO_APPS_MUNICIPALITY_GROUPS"] = (
+            '["pl_belleville_ac", "pl_another_ic"]'
+        )
         utils._set_municipality_groups(oidc_sso_apps)
         assert oidc_sso_apps.municipality_groups == (
             "pl_belleville_ac",
@@ -237,13 +237,15 @@ class TestUtils:
         primary = self._mock_response([{"id": "1", "email": "a@b.c"}])
         try:
             os.environ.update(env)
-            with patch.object(
-                utils, "get_admin_access_token", return_value="tok"
-            ), patch(
-                "pas.plugins.kimug.utils.requests.get", return_value=primary
-            ), patch.object(
-                utils, "get_realm_users", return_value=[{"id": None, "email": "x@y.z"}]
-            ) as mocked_realm:
+            with (
+                patch.object(utils, "get_admin_access_token", return_value="tok"),
+                patch("pas.plugins.kimug.utils.requests.get", return_value=primary),
+                patch.object(
+                    utils,
+                    "get_realm_users",
+                    return_value=[{"id": None, "email": "x@y.z"}],
+                ) as mocked_realm,
+            ):
                 # iA.Bibliotheca: no extra realm fetched
                 os.environ["application_id"] = "iA.Bibliotheca"
                 users = utils.get_keycloak_users()
@@ -944,12 +946,13 @@ class TestSetOidcSettings:
         conn.root.return_value = {"Application": {"Plone": site}}
         context = MagicMock()
         context.database.open.return_value = conn
-        with patch.object(
-            utils.api.portal, "get", side_effect=api.exc.CannotGetPortalError
-        ), patch("pas.plugins.kimug.utils.setSite") as mock_set_site, patch(
-            "pas.plugins.kimug.utils._set_oidc_settings"
-        ) as mock_settings, patch(
-            "pas.plugins.kimug.utils.transaction"
+        with (
+            patch.object(
+                utils.api.portal, "get", side_effect=api.exc.CannotGetPortalError
+            ),
+            patch("pas.plugins.kimug.utils.setSite") as mock_set_site,
+            patch("pas.plugins.kimug.utils._set_oidc_settings") as mock_settings,
+            patch("pas.plugins.kimug.utils.transaction"),
         ):
             utils.set_oidc_settings(context)
         mock_settings.assert_called_once()

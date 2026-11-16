@@ -9,7 +9,6 @@ from Products.PluggableAuthService.interfaces.plugins import IChallengePlugin
 
 import logging
 
-
 logger = logging.getLogger(__name__)
 
 
