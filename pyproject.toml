@@ -9,7 +9,7 @@ requires = ["setuptools>=68.2,<83", "wheel"]
 # will be kept by plone.meta
 [project]
 name = "pas.plugins.kimug"
-version = "2.0.0.dev0"
+version = "2.0.0"
 description = "A PAS plugin to set roles to imio keycloak users"
 classifiers = [
     "Development Status :: 3 - Alpha",
