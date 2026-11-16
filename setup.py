@@ -1,7 +1,6 @@
 """Installer for the pas.plugins.kimug package."""
 
 from pathlib import Path
-from setuptools import find_packages
 from setuptools import setup
 
 
@@ -14,7 +13,7 @@ long_description = f"""
 
 setup(
     name="pas.plugins.kimug",
-    version="1.9.6.dev0",
+    version="2.0.0.dev0",
     description="A PAS plugin to set roles to imio keycloak users",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -22,9 +21,9 @@ setup(
         "Development Status :: 3 - Alpha",
         "Environment :: Web Environment",
         "Framework :: Plone",
-        "Framework :: Plone :: Addon",
-        "Framework :: Plone :: 6.0",
         "Framework :: Plone :: 6.1",
+        "Framework :: Plone :: 6.2",
+        "Framework :: Plone :: Addon",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
@@ -43,17 +42,13 @@ setup(
         "Tracker": "https://github.com/imio/pas.plugins.kimug/issues",
     },
     license="GPL version 2",
-    packages=find_packages("src", exclude=["ez_setup"]),
-    namespace_packages=["pas", "pas.plugins"],
-    package_dir={"": "src"},
     include_package_data=True,
     zip_safe=False,
     python_requires=">=3.10",
     install_requires=[
-        "setuptools",
         "Products.CMFPlone",
         "plone.api",
-        "pas.plugins.oidc>=2.0.0b4",
+        "pas.plugins.oidc>=2.1.0",
         "python-keycloak",
         "PyJWT[crypto]>=2.6",
     ],
